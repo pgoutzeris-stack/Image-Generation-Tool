@@ -255,7 +255,7 @@
     transform: translateY(-1px);
   }
   .btn-zip-minimal:active { 
-    transform: translateY(px); 
+    transform: translateY(1px); 
     box-shadow: 0 2px 5px rgba(0,0,0,0.05);
   }
 
@@ -372,7 +372,7 @@
     </div>
     <div id="drop-zone" class="drop-zone">
       <i id="drop-icon" class="fa-solid fa-image"></i>
-      <p id="drop-text">Bild hier ablegen oder kicken, um eine Vorlage hochzuladen</p>
+      <p id="drop-text">Bild hier ablegen oder klicken, um eine Vorlage hochzuladen</p>
       <input type="file" id="file-input" accept="image/*" style="display:none;">
       <img id="drop-preview" src="" style="display:none;" alt="Stil-Referenz">
       <button id="btn-remove-ref" class="btn-remove-ref" title="Referenz entfernen">
@@ -396,7 +396,7 @@
       <div class="card-title">
         <i class="fa-solid fa-sliders"></i> Stil & Setup 
         <span class="tooltip-wrapper" data-tooltip="Hier legst du das Aussehen und die technischen Details für deine Bilder fest.">
-          <i class="faolid fa-circle-info"></i>
+          <i class="fa-solid fa-circle-info"></i>
         </span>
       </div>
 
@@ -421,7 +421,7 @@
         <div>
           <label>Seitenverhältnis</label>
           <input type="hidden" id="sel-aspect" value="9:16">
-          <div id="dd-aspect" class="customelect-wrapper">
+          <div id="dd-aspect" class="custom-select-wrapper">
             <div class="custom-select-trigger" onclick="toggleDropdown('dd-aspect', event)">
               <span class="selected-text">9:16 Hochformat</span>
               <i class="fa-solid fa-chevron-down arrow"></i>
@@ -522,7 +522,7 @@
       <button class="btn-add" onclick="addPrompt()"><i class="fa-solid fa-plus"></i> Weiteres Bild hinzufügen</button>
     </div>
 
-    <button id="btn-run" class="b-primary" onclick="startBatch()">
+    <button id="btn-run" class="btn-primary" onclick="startBatch()">
       <i class="fa-solid fa-wand-magic-sparkles"></i> Bilder generieren
     </button>
     <button id="btn-cancel" class="btn-cancel" style="display: none;" onclick="cancelBatch()">
@@ -584,7 +584,7 @@
   let generatedImagesGlobal = [];
   
   let activeAbortController = null;
-  let rfImageData = null;
+  let refImageData = null;
   let refImageMimeType = null;
 
   let currentStyleValue = "esmara";
@@ -617,7 +617,7 @@
     }
   }
 
-  document.addEventListener('click', (e) =>{
+  document.addEventListener('click', (e) => {
     document.querySelectorAll('.custom-select-wrapper').forEach(dropdown => {
       if (!dropdown.contains(e.target)) dropdown.classList.remove('open');
     });
@@ -696,7 +696,7 @@
         };
         
         let editIcon = document.createElement('i');
-        editIcon.className = 'fa-solid fa-pen-to-squar edit-icon';
+        editIcon.className = 'fa-solid fa-pen-to-square edit-icon';
         
         editIcon.onclick = (e) => {
           e.stopPropagation();
@@ -826,7 +826,7 @@
     if (container.children.length > 1) {
       btn.parentElement.remove();
       updatePlaceholders();
-    }else {
+    } else {
       alert("Du brauchst mindestens einen Text für den Batch.");
     }
   };
@@ -857,7 +857,7 @@
 
   window.downloadAllZip = async function() {
     if (generatedImagesGlobal.length === 0) return;
-    simpleLog("Erlle ZIP-Archiv...");
+    simpleLog("Erstelle ZIP-Archiv...");
     var zip = new JSZip();
     for (var i = 0; i < generatedImagesGlobal.length; i++) {
       zip.file(generatedImagesGlobal[i].filename, generatedImagesGlobal[i].blob);
@@ -1014,7 +1014,7 @@
           try { await sleep(waitSec * 1000); } catch(e){}
           
           if (batchCancelled) { completeActiveLog(activeLog, "Gestoppt.", 'warn'); return null; }
-          completeActiveLog(activeLog, `Abkühlung ferttarte Versuch ${attempt}...`, "terminal");
+          completeActiveLog(activeLog, `Abkühlung fertig. Starte Versuch ${attempt}...`, "terminal");
         }
 
         activeLog = createActiveLog("", true, idx, total, model.label);
@@ -1036,7 +1036,7 @@
           
           if (data.candidates && data.candidates[0] && data.candidates[0].finishReason === 'SAFETY') {
              throw new Error("Vom Sicherheitsfilter blockiert. Bitte Motiv anpassen.");
-       }
+          }
 
           var parts = (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) ? data.candidates[0].content.parts : [];
           var imagePart = null;
@@ -1061,7 +1061,7 @@
 
         } catch (error) {
           if (error.name === 'AbortError') {
-             completeActiveLog(activeLog, `Generierung für Bild ${idx} wde abgebrochen.`, 'err');
+             completeActiveLog(activeLog, `Generierung für Bild ${idx} wurde abgebrochen.`, 'err');
              return null;
           }
 
@@ -1108,7 +1108,7 @@
           '<i class="fa-solid fa-download"></i> Download' +
           '</a>';
         ph.replaceWith(wrapper);
-    }
+      }
     } else {
       var ph2 = document.getElementById('placeholder-' + i);
       if (ph2) {
@@ -1192,13 +1192,13 @@
       var promises = [];
       for (var pi = 0; pi < prompts.length; pi++) {
         (function(idx) {
-          promises.push((async function() {
-            await sleep(idx * 500);
-            if (batchCancelled) { return null; }
+          promises.push(new Promise(async function(resolve) {
+            await sleep(idx * 500); 
+            if (batchCancelled) { resolve(null); return; }
             var blob = await generateWithRetry(prompts[idx], idx + 1, prompts.length, mimeType, modelMode, aspect);
             if (!batchCancelled) placeResult(idx, blob, fileExt, generatedImages);
-            return blob;
-          })());
+            resolve(blob);
+          }));
         })(pi);
       }
       await Promise.all(promises);
