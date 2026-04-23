@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+  <style>
+  @import url('https://fonts.cdnfonts.com/css/circular-std');
+
+  :root {
+    --c-bg:       #f4f6f8;
+    --c-card:     #ffffff;
+    --c-border:   #e2e8f0;
+    --c-accent:   #4f46e5;
+    --c-accent-hover: #4338ca;
+    --c-text:     #0f172a;
+    --c-text-muted: #64748b;
+    --c-danger:   #ef4444;
+    --c-success:  #10b981;
+    --c-terminal: #0ea5e9;
+    --shadow-soft: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+    --shadow-focus: 0 0 0 4px rgba(79, 70, 229, 0.15);
+    --radius:     16px;
+  }
+
+  body {
+    background-color: var(--c-bg);
+    color: var(--c-text);
+    font-family: 'Circular Std', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    margin: 0;
+    padding: 60px 20px 100px 20px; 
+    line-height: 1.6;
+  }
+
+  .header { text-align: center; margin-bottom: 50px; }
+  .header h1 { font-size: 2.2rem; margin: 0 0 8px 0; color: var(--c-text); letter-spacing: -0.5px; }
+  .header p { color: var(--c-text-muted); margin: 0; font-size: 1.1rem; }
+
+  .main-wrapper {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 95%;
+    align-items: stretch;
+  }
+
+  .left-panel, .right-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .card {
+    background: var(--c-card);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    padding: 28px;
+    box-shadow: var(--shadow-soft);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    box-sizing: border-box;
+  }
+
+  .card-top { 
+    height: 430px; 
+    flex: 0 0 auto; 
+  }
+  .card-bottom { 
+    flex: 1 1 auto; 
+    min-height: 450px; 
+  }
+
+  .card-title {
+    font-size: 1.15rem; font-weight: 700; margin-bottom: 24px;
+    display: flex; align-items: center; gap: 10px; color: var(--c-text);
+  }
+  .card-title > i.fa-solid { color: var(--c-accent); }
+
+  label {
+    display: flex; align-items: center; font-size: 0.8rem; font-weight: 700;
+    color: var(--c-text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+
+  .tooltip-wrapper {
+    position: relative; display: inline-flex; align-items: center;
+    margin-left: 8px; cursor: pointer; z-index: 10;
+  }
+  .tooltip-wrapper i { color: var(--c-accent); font-size: 1.2em; transition: transform 0.2s ease, color 0.2s ease; }
+  .tooltip-wrapper:hover i { transform: scale(1.15); color: var(--c-accent-hover); }
+  .tooltip-wrapper::after {
+    content: attr(data-tooltip); position: absolute; bottom: 150%; left: 50%;
+    transform: translateX(-50%); background-color: #ffffff; color: var(--c-text);
+    border: 1px solid var(--c-border); padding: 12px 16px; border-radius: 8px;
+    font-size: 0.85rem; font-family: 'Circular Std', sans-serif; font-weight: 500;
+    text-transform: none; letter-spacing: normal; white-space: normal;
+    width: max-content; max-width: 250px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    opacity: 0; visibility: hidden; transition: all 0.2s ease-in-out;
+    z-index: 9999; pointer-events: none; text-align: center; line-height: 1.4;
+  }
+  .tooltip-wrapper::before {
+    content: ''; position: absolute; bottom: 150%; left: 50%;
+    transform: translateX(-50%); border: 8px solid transparent;
+    border-top-color: #ffffff; opacity: 0; visibility: hidden;
+    transition: all 0.2s ease-in-out; z-index: 10000; pointer-events: none;
+    filter: drop-shadow(0px 3px 2px rgba(0,0,0,0.05));
+  }
+  .tooltip-wrapper:hover::after { opacity: 1; visibility: visible; bottom: 170%; }
+  .tooltip-wrapper:hover::before { opacity: 1; visibility: visible; bottom: calc(170% - 15px); }
+
+  /* =========================================
+     EINHEITLICHES CUSTOM DROPDOWN STYLING
+     ========================================= */
+  .custom-select-wrapper { position: relative; width: 100%; user-select: none; }
+  .custom-select-trigger {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 16px; 
+    border: 1.5px solid var(--c-border); border-radius: 10px; 
+    background-color: #f8fafc; cursor: pointer; font-size: 1rem; 
+    font-weight: 500; color: var(--c-text); transition: all 0.25s ease;
+  }
+  .custom-select-trigger:hover { border-color: var(--c-accent); background-color: #ffffff; box-shadow: var(--shadow-focus); }
+  .custom-select-trigger i.arrow { color: #64748b; transition: transform 0.3s ease; }
+  .custom-select-wrapper.open .custom-select-trigger { border-color: var(--c-accent); background-color: #ffffff; box-shadow: var(--shadow-focus); }
+  .custom-select-wrapper.open .custom-select-trigger i.arrow { transform: rotate(180deg); }
+  
+  .custom-options {
+    position: absolute; top: 100%; left: 0; right: 0; background: #ffffff;
+    border: 1px solid var(--c-border); border-radius: 10px; margin-top: 8px;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.15); z-index: 100;
+    max-height: 350px; overflow-y: auto; opacity: 0; visibility: hidden;
+    transform: translateY(-10px); transition: all 0.2s ease;
+  }
+  .custom-select-wrapper.open .custom-options { opacity: 1; visibility: visible; transform: translateY(0); }
+  
+  .custom-options::-webkit-scrollbar { width: 6px; }
+  .custom-options::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.02); }
+  .custom-options::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  .custom-options::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+  .custom-option {
+    display: flex; flex-direction: column; align-items: stretch;
+    padding: 12px 16px; border-bottom: 1px solid #f1f5f9; transition: background 0.2s;
+  }
+  .custom-option:last-child { border-bottom: none; }
+  .custom-option:hover { background: #f8fafc; }
+  .custom-option.selected { font-weight: bold; background: #eef2ff; }
+  .custom-option.selected .option-text { color: var(--c-accent); }
+  
+  .option-header { display: flex; justify-content: space-between; align-items: center; width: 100%; cursor: pointer; }
+  .option-text { flex-grow: 1; font-size: 0.95rem; }
+  
+  .option-actions { display: flex; gap: 14px; align-items: center; color: #94a3b8; }
+  .option-actions i { transition: color 0.2s, transform 0.2s; font-size: 1.1rem; cursor: pointer;}
+  .option-actions .info-icon:hover { color: var(--c-accent); transform: scale(1.1); }
+  .option-actions .edit-icon:hover { color: var(--c-success); transform: scale(1.1); }
+  .option-actions.custom-row-action i { color: var(--c-text); font-size: 1.2rem; }
+
+  .option-prompt-preview {
+    font-size: 0.85rem; color: #64748b; background-color: #f8fafc; 
+    border: 1px dashed #cbd5e1; padding: 12px; border-radius: 8px; 
+    margin-top: 10px; display: none; white-space: pre-wrap; 
+    line-height: 1.5; cursor: default;
+  }
+
+  .option-edit-area { 
+    display: none; flex-direction: column; gap: 10px; margin-top: 10px; 
+    width: 100%; cursor: default; 
+  }
+  .option-edit-area textarea { 
+    width: 100%; min-height: 140px; padding: 12px; border-radius: 8px; 
+    border: 1.5px solid var(--c-accent); font-size: 0.9rem; 
+    font-family: 'Circular Std', inherit; resize: vertical; 
+    box-sizing: border-box; outline: none; box-shadow: var(--shadow-focus); 
+    background: #ffffff; color: var(--c-text); line-height: 1.5;
+  }
+  .btn-save-inline { 
+    background: var(--c-success); color: white; border: none; 
+    padding: 10px 16px; border-radius: 8px; cursor: pointer; font-size: 0.9rem;
+    font-weight: bold; align-self: flex-end; transition: background 0.2s; 
+    display: flex; align-items: center; gap: 8px;
+  }
+  .btn-save-inline:hover { background: #059669; }
+
+  /* ========================================= */
+
+  input[type="text"] {
+    -webkit-appearance: none; -moz-appearance: none; appearance: none;
+    width: 100%; padding: 14px 16px; border: 1.5px solid var(--c-border);
+    border-radius: 10px; font-family: inherit; font-size: 1rem;
+    color: var(--c-text); background-color: #f8fafc; transition: all 0.25s ease;
+    box-sizing: border-box;
+  }
+  input[type="text"]::placeholder { color: #94a3b8; opacity: 1; }
+  input[type="text"]:focus {
+    outline: none; border-color: var(--c-accent); background-color: #ffffff; box-shadow: var(--shadow-focus);
+  }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+  
+  .prompt-list { display: flex; flex-direction: column; gap: 14px; margin-bottom: 20px; flex-grow: 1; }
+  .prompt-row { display: flex; gap: 12px; align-items: center; }
+  .prompt-row input { flex-grow: 1; }
+  
+  .btn-icon {
+    background: #f1f5f9; border: 1.5px solid var(--c-border); color: var(--c-text-muted);
+    width: 48px; height: 48px; border-radius: 10px; cursor: pointer; display: flex;
+    align-items: center; justify-content: center; transition: all 0.2s;
+  }
+  .btn-icon:hover { border-color: var(--c-danger); color: var(--c-danger); background-color: #fef2f2; }
+
+  .btn-add {
+    background: transparent; border: 2px dashed #cbd5e1; color: var(--c-text-muted);
+    width: 100%; padding: 14px; border-radius: 10px; cursor: pointer; font-weight: 600; transition: all 0.2s;
+  }
+  .btn-add:hover { border-color: var(--c-accent); color: var(--c-accent); background-color: #eef2ff; }
+
+  .btn-primary {
+    background-color: var(--c-accent); color: white; border: none; border-radius: 12px;
+    padding: 18px; width: 100%; font-size: 1.1rem; font-weight: 700; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 10px; transition: all 0.2s;
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+  }
+  .btn-primary:hover { background-color: var(--c-accent-hover); transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(1px); }
+  .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .btn-cancel {
+    background-color: var(--c-danger); color: white; border: none; border-radius: 12px;
+    padding: 18px; width: 100%; font-size: 1.1rem; font-weight: 700; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 10px; transition: all 0.2s;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
+  }
+  .btn-cancel:hover { background-color: #dc2626; transform: translateY(-1px); }
+  .btn-cancel:active { transform: translateY(1px); }
+
+  /* =========================================
+     DOWNLOAD BUTTONS (NUR SCHATTEN ON HOVER)
+     ========================================= */
+
+  /* Großer ZIP Button (Unten Rechts) */
+  .btn-zip-minimal {
+    background-color: #ffffff; color: #000000; border: 1.5px solid var(--c-border);
+    border-radius: 12px; padding: 12px 20px; font-size: 1rem; font-weight: 600; cursor: pointer;
+    display: none; align-items: center; justify-content: center; gap: 10px; 
+    transition: box-shadow 0.2s, transform 0.2s; margin-top: auto; 
+  }
+  .btn-zip-minimal:hover { 
+    box-shadow: 0 10px 25px rgba(0,0,0,0.12); 
+    transform: translateY(-1px);
+  }
+  .btn-zip-minimal:active { 
+    transform: translateY(px); 
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  }
+
+  /* Kleiner Einzel-Download Button (Auf den Bildern) */
+  .btn-dl-single {
+    position: absolute; bottom: 10px; right: 10px; 
+    background: #ffffff; color: #000000; border: none; border-radius: 8px; 
+    padding: 7px 11px; font-size: 0.78rem; font-weight: 700; cursor: pointer; 
+    display: flex; align-items: center; gap: 6px; 
+    transition: box-shadow 0.2s, transform 0.15s; 
+    text-decoration: none; letter-spacing: 0.3px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+  }
+  .btn-dl-single:hover { 
+    box-shadow: 0 8px 20px rgba(0,0,0,0.3); 
+    transform: scale(1.03); 
+  }
+
+  /* ========================================= */
+
+  .modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.7);
+    backdrop-filter: blur(4px); z-index: 2000; display: none; align-items: center; justify-content: center;
+  }
+  .modal-content {
+    background: var(--c-card); border-radius: var(--radius); padding: 30px;
+    width: 90%; max-width: 500px; box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+  }
+  .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .modal-header h3 { margin: 0; font-size: 1.2rem; color: var(--c-text); }
+  .close-modal { font-size: 1.5rem; cursor: pointer; color: var(--c-text-muted); transition: color 0.2s; }
+  .close-modal:hover { color: var(--c-danger); }
+
+  .drop-zone {
+    border: 2px dashed #cbd5e1; border-radius: 12px; padding: 35px 20px; text-align: center;
+    cursor: pointer; background-color: #f8fafc; transition: all 0.2s ease; position: relative; color: var(--c-text-muted);
+  }
+  .drop-zone:hover, .drop-zone.dragover { border-color: var(--c-accent); background-color: #eef2ff; color: var(--c-accent); }
+  .drop-zone i.fa-image { font-size: 2.5rem; margin-bottom: 12px; }
+  .drop-zone p { margin: 0; font-size: 1rem; font-weight: 500; }
+  .drop-zone img { max-width: 100%; max-height: 200px; border-radius: 8px; object-fit: contain; }
+  
+  .btn-remove-ref {
+    position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.6); color: white;
+    border: none; border-radius: 50%; width: 30px; height: 30px; display: none; align-items: center;
+    justify-content: center; cursor: pointer; transition: 0.2s;
+  }
+  .btn-remove-ref:hover { background: var(--c-danger); }
+
+  /* =========================================
+     Terminal Scrolling & ANTI-SPRINGEN Layout
+     ========================================= */
+  .terminal-wrapper { position: relative; flex: 1; height: 0; min-height: 0; display: flex; flex-direction: column; padding: 0; margin-top: 5px; }
+  #log-container { 
+    background: transparent; color: var(--c-terminal); font-family: 'JetBrains Mono', monospace; 
+    font-size: 0.9rem; flex: 1; overflow-y: auto; overflow-x: hidden; padding-right: 10px; line-height: 1.5;
+  }
+  #log-container::-webkit-scrollbar { width: 6px; }
+  #log-container::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.02); border-radius: 4px; }
+  #log-container::-webkit-scrollbar-thumb { background: rgba(14, 165, 233, 0.3); border-radius: 4px; }
+  #log-container::-webkit-scrollbar-thumb:hover { background: rgba(14, 165, 233, 0.6); }
+
+  .log-entry { margin-bottom: 6px; word-break: break-word; }
+  .log-ok { color: #10b981; } 
+  .log-err { color: #ef4444; } 
+  .log-warn { color: #f59e0b; }
+  .log-active { 
+    font-weight: bold; background: linear-gradient(90deg, var(--c-terminal) 0%, #7dd3fc 50%, var(--c-terminal) 100%);
+    background-size: 200% auto; color: transparent; -webkit-background-clip: text; background-clip: text;
+    animation: textShimmer 2s linear infinite;
+  }
+  @keyframes textShimmer { to { background-position: 200% center; } }
+  
+  .log-text { display: inline; }
+  .dots { 
+    display: inline-block; 
+    width: 32px; 
+    text-align: left; 
+  }
+  .timer { 
+    display: inline-block; 
+    font-variant-numeric: tabular-nums; 
+    opacity: 0.8; 
+    font-weight: normal; 
+  }
+  
+  /* ========================================= */
+
+  .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; margin-bottom: 20px; }
+  .img-wrapper { position: relative; border-radius: 12px; overflow: hidden; box-shadow: var(--shadow-soft); }
+  .img-wrapper img { width: 100%; display: block; border-radius: 12px; border: 1px solid var(--c-border); object-fit: cover; transition: transform 0.2s; cursor: zoom-in; aspect-ratio: 1; }
+  .img-wrapper img:hover { transform: scale(1.02); }
+
+  .placeholder { background: #e2e8f0; border-radius: 12px; aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #94a3b8; font-size: 0.9rem; gap: 8px; border: 2px dashed #cbd5e1; transition: all 0.3s;}
+  .placeholder.active { border-style: solid; border-color: transparent; animation: pulse 2s infinite ease-in-out; }
+  @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+
+  #lightbox { display: none; position: fixed; z-index: 9999; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+  #lightbox img { max-width: 90%; max-height: 90%; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+  .lightbox-close { position: absolute; top: 30px; right: 40px; color: white; font-size: 2.5rem; cursor: pointer; transition: color 0.2s; }
+  .lightbox-close:hover { color: var(--c-danger); }
+  
+  @media (max-width: 992px) { .main-wrapper { grid-template-columns: 1fr; } .card-top { height: auto; } }
+  @media (max-width: 600px) { .grid-2 { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+
+<div id="modal-dropzone" class="modal-overlay">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Stil-Referenz hochladen</h3>
+      <i class="fa-solid fa-xmark close-modal" onclick="closeDropzoneModal()" title="Schließen"></i>
+    </div>
+    <div id="drop-zone" class="drop-zone">
+      <i id="drop-icon" class="fa-solid fa-image"></i>
+      <p id="drop-text">Bild hier ablegen oder kicken, um eine Vorlage hochzuladen</p>
+      <input type="file" id="file-input" accept="image/*" style="display:none;">
+      <img id="drop-preview" src="" style="display:none;" alt="Stil-Referenz">
+      <button id="btn-remove-ref" class="btn-remove-ref" title="Referenz entfernen">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <button class="btn-primary" style="margin-top: 20px;" onclick="closeDropzoneModal()">Fertig & Schließen</button>
+  </div>
+</div>
+
+<div class="header">
+  <h1><i class="fa-solid fa-layer-group" style="color: var(--c-accent);"></i> Image Generation Tool</h1>
+  <p>Entwickelt von ROOTS Brand Strategy Consultants GmbH</p>
+</div>
+
+<div class="main-wrapper">
+  
+  <div class="left-panel">
+    
+    <div class="card card-top">
+      <div class="card-title">
+        <i class="fa-solid fa-sliders"></i> Stil & Setup 
+        <span class="tooltip-wrapper" data-tooltip="Hier legst du das Aussehen und die technischen Details für deine Bilder fest.">
+          <i class="faolid fa-circle-info"></i>
+        </span>
+      </div>
+
+      <div style="margin-bottom: 24px;">
+        <label>
+          Bildstil Vorgabe 
+          <span class="tooltip-wrapper" data-tooltip="Wähle einen fertigen Stil oder klicke auf 'Eigene Bildreferenz', um ein eigenes Bild als starke Vorlage hochzuladen.">
+            <i class="fa-solid fa-circle-info"></i>
+          </span>
+        </label>
+        <div id="style-dropdown" class="custom-select-wrapper">
+          <div class="custom-select-trigger" onclick="toggleDropdown('style-dropdown', event)">
+            <span class="selected-text" id="selected-style-text">Esmara</span>
+            <i class="fa-solid fa-chevron-down arrow"></i>
+          </div>
+          <div class="custom-options" id="custom-options-container">
+            </div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div>
+          <label>Seitenverhältnis</label>
+          <input type="hidden" id="sel-aspect" value="9:16">
+          <div id="dd-aspect" class="customelect-wrapper">
+            <div class="custom-select-trigger" onclick="toggleDropdown('dd-aspect', event)">
+              <span class="selected-text">9:16 Hochformat</span>
+              <i class="fa-solid fa-chevron-down arrow"></i>
+            </div>
+            <div class="custom-options">
+              <div class="custom-option selected" onclick="setSimpleOpt('dd-aspect', 'sel-aspect', '9:16', '9:16 Hochformat', event)">
+                <span class="option-text">9:16 Hochformat</span>
+              </div>
+              <div class="custom-option" onclick="setSimpleOpt('dd-aspect', 'sel-aspect', '16:9', '16:9 Querformat', event)">
+                <span class="option-text">16:9 Querformat</span>
+              </div>
+              <div class="custom-option" onclick="setSimpleOpt('dd-aspect', 'sel-aspect', '1:1', '1:1 Quadrat', event)">
+                <span class="option-text">1:1 Quadrat</span>
+              </div>
+              <div class="custom-option" onclick="setSimpleOpt('dd-aspect', 'sel-aspect', '4:3', '4:3 Fotografie', event)">
+                <span class="option-text">4:3 Fotografie</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div>
+          <label>Modell</label>
+          <input type="hidden" id="sel-model" value="auto">
+          <div id="dd-model" class="custom-select-wrapper">
+            <div class="custom-select-trigger" onclick="toggleDropdown('dd-model', event)">
+              <span class="selected-text">Auto</span>
+              <i class="fa-solid fa-chevron-down arrow"></i>
+            </div>
+            <div class="custom-options">
+              <div class="custom-option selected" onclick="setSimpleOpt('dd-model', 'sel-model', 'auto', 'Auto', event)">
+                <span class="option-text">Auto</span>
+              </div>
+              <div class="custom-option" onclick="setSimpleOpt('dd-model', 'sel-model', 'nb2', 'Nano Banana 2', event)">
+                <span class="option-text">Nano Banana 2</span>
+              </div>
+              <div class="custom-option" onclick="setSimpleOpt('dd-model', 'sel-model', 'nb1', 'Nano Banana 1', event)">
+                <span class="option-text">Nano Banana 1</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div>
+          <label>Batch-Modus</label>
+          <input type="hidden" id="sel-batch-mode" value="sequential">
+          <div id="dd-batch" class="custom-select-wrapper">
+            <div class="custom-select-trigger" onclick="toggleDropdown('dd-batch', event)">
+              <span class="selected-text">Nacheinander</span>
+              <i class="fa-solid fa-chevron-down arrow"></i>
+            </div>
+            <div class="custom-options">
+              <div class="custom-option selected" onclick="setSimpleOpt('dd-batch', 'sel-batch-mode', 'sequential', 'Nacheinander', event)">
+                <span class="option-text">Nacheinander</span>
+              </div>
+              <div class="custom-option" onclick="setSimpleOpt('dd-batch', 'sel-batch-mode', 'parallel', 'Parallel (schnell)', event)">
+                <span class="option-text">Parallel (schnell)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div>
+          <label>Dateityp</label>
+          <input type="hidden" id="sel-format" value="image/jpeg">
+          <div id="dd-format" class="custom-select-wrapper">
+            <div class="custom-select-trigger" onclick="toggleDropdown('dd-format', event)">
+              <span class="selected-text">JPEG</span>
+              <i class="fa-solid fa-chevron-down arrow"></i>
+            </div>
+            <div class="custom-options">
+              <div class="custom-option selected" onclick="setSimpleOpt('dd-format', 'sel-format', 'image/jpeg', 'JPEG', event)">
+                <span class="option-text">JPEG</span>
+              </div>
+              <div class="custom-option" onclick="setSimpleOpt('dd-format', 'sel-format', 'image/png', 'PNG', event)">
+                <span class="option-text">PNG</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="card card-bottom">
+      <div class="card-title">
+        <i class="fa-solid fa-list-ul"></i> Bild Prompts 
+        <span class="tooltip-wrapper" data-tooltip="Hier beschreibst du, was auf den Bildern zu sehen sein soll. Jedes Feld erstellt ein eigenes Bild.">
+          <i class="fa-solid fa-circle-info"></i>
+        </span>
+      </div>
+      <div id="prompt-container" class="prompt-list">
+        <div class="prompt-row">
+          <input type="text" class="prompt-input" placeholder="Bild 1: Motiv beschreiben... (z.B. Frau im beigen Pullover)" value="" oninput="updatePlaceholders()">
+          <button class="btn-icon" onclick="removePrompt(this)" title="Löschen"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </div>
+      <button class="btn-add" onclick="addPrompt()"><i class="fa-solid fa-plus"></i> Weiteres Bild hinzufügen</button>
+    </div>
+
+    <button id="btn-run" class="b-primary" onclick="startBatch()">
+      <i class="fa-solid fa-wand-magic-sparkles"></i> Bilder generieren
+    </button>
+    <button id="btn-cancel" class="btn-cancel" style="display: none;" onclick="cancelBatch()">
+      <i class="fa-solid fa-hand"></i> Generierung abbrechen
+    </button>
+
+  </div>
+
+  <div class="right-panel">
+    
+    <div class="card card-top">
+      <div class="card-title">
+        <i class="fa-solid fa-terminal"></i> System Status 
+        <span class="tooltip-wrapper" data-tooltip="Zeigt an, was im Hintergrund gerade passiert und ob es Fehler gibt.">
+          <i class="fa-solid fa-circle-info"></i>
+        </span>
+      </div>
+      <div class="terminal-wrapper">
+        <div id="log-container">
+          <div class="log-entry">> System bereit. Warte auf Eingaben...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card card-bottom">
+      <div class="card-title">
+        <i class="fa-solid fa-images"></i> Generierte Bilder
+      </div>
+      
+      <div id="gallery" class="gallery">
+        <div class="placeholder"><i class="fa-solid fa-image fa-2x"></i></div>
+      </div>
+      
+      <button id="btn-zip" class="btn-zip-minimal" onclick="downloadAllZip()">
+        <i class="fa-solid fa-file-zipper"></i> Alle Bilder als ZIP herunterladen
+      </button>
+    </div>
+
+  </div>
+
+</div>
+
+<div id="lightbox" onclick="closeLightbox()">
+  <i class="fa-solid fa-xmark lightbox-close"></i>
+  <img id="lightbox-img" src="" alt="Großansicht" onclick="event.stopPropagation()">
+</div>
+
+<script>
+  const API_KEY = "AIzaSyC1BIkHfccvJ8fUmjgNfyW6TOQDhCjCxBA";
+  const MODEL_NB2 = 'gemini-3.1-flash-image-preview';
+  const MODEL_NB1 = 'gemini-2.5-flash-image';
+  const RETRYABLE_KEYWORDS = [
+    'resource', 'overloaded', 'rate', 'quota', 'limit', 'capacity',
+    'demand', 'busy', 'try again', 'unavailable', 'internal', 'backend',
+    'temporarily', 'server error', '429', '503', '500'
+  ];
+
+  let batchCancelled = false;
+  let generatedImagesGlobal = [];
+  
+  let activeAbortController = null;
+  let rfImageData = null;
+  let refImageMimeType = null;
+
+  let currentStyleValue = "esmara";
+  let styleOptions = [
+    { 
+      id: "esmara", 
+      name: "Lidl Esmara Fashion Kampagne", 
+      prompt: "STIL: Moderne, hochwertige Fashion-Kampagne (inspirierte Ästhetik).\nVisual Identity (STRICT):\n- Farbpalette: warme Beige-Töne, weiches Creme, subtile rote Akzente (#d50000)\n- Beleuchtung: weiches diffuses Studiolicht, warm, elegant\n- Stimmung: premium, ruhig, minimalistisch\n- Materialien: weiche Stoffe, natürliche Texturen\n- Hintergrund: clean, neutral, leicht unscharf\nPhotography Style: High-End Editorial, flache Schärfentiefe.\nVERBOTEN: Schreibe KEINESFALLS die Wörter 'Esmara' oder 'Lidl' in das Bild. Generiere KEINE Logos oder Markennamen." 
+    },
+    { id: "photo", name: "Fotorealistisch", prompt: "Photorealistic, high quality, 8k, DSLR" },
+    { id: "anime", name: "Anime / Manga", prompt: "Anime / Manga Style, vibrant colors, clean lines" },
+    { id: "watercolor", name: "Aquarell Malerei", prompt: "Watercolor painting, expressive brushstrokes" },
+    { id: "flat", name: "Flat Design", prompt: "Flat Vector Design, simple, solid colors" },
+    { id: "info", name: "Infografik", prompt: "Clean Infographic style, corporate, isometric" },
+    { id: "logo", name: "Logo Design", prompt: "Modern minimalist Logo design, white background" },
+    { id: "app", name: "App Icon", prompt: "Flat App Icon design, rounded corners, simple shape" },
+    { id: "icon", name: "Icon / Line Art", prompt: "Monochrome line art icon, solid shapes, similar to font awesome" },
+    { id: "custom", name: "Eigene Bildreferenz wählen", prompt: "" }
+  ];
+
+  function toggleDropdown(id, e) {
+    if (e) e.stopPropagation();
+    const target = document.getElementById(id);
+    const wasOpen = target.classList.contains('open');
+
+    document.querySelectorAll('.custom-select-wrapper').forEach(el => el.classList.remove('open'));
+    
+    if (!wasOpen) {
+      target.classList.add('open');
+    }
+  }
+
+  document.addEventListener('click', (e) =>{
+    document.querySelectorAll('.custom-select-wrapper').forEach(dropdown => {
+      if (!dropdown.contains(e.target)) dropdown.classList.remove('open');
+    });
+  });
+
+  function setSimpleOpt(ddId, inputId, val, label, e) {
+    if (e) e.stopPropagation();
+    document.getElementById(inputId).value = val;
+    const wrapper = document.getElementById(ddId);
+    wrapper.querySelector('.selected-text').innerText = label;
+    wrapper.querySelectorAll('.custom-option').forEach(opt => opt.classList.remove('selected'));
+    if(e && e.currentTarget) e.currentTarget.classList.add('selected');
+    wrapper.classList.remove('open');
+  }
+
+  function renderCustomDropdown() {
+    const container = document.getElementById('custom-options-container');
+    const triggerText = document.getElementById('selected-style-text');
+    container.innerHTML = '';
+
+    let activeStyle = styleOptions.find(s => s.id === currentStyleValue) || styleOptions[0];
+    triggerText.innerText = activeStyle.name;
+
+    styleOptions.forEach(opt => {
+      let div = document.createElement('div');
+      div.className = 'custom-option' + (opt.id === currentStyleValue ? ' selected' : '');
+
+      let headerDiv = document.createElement('div');
+      headerDiv.className = 'option-header';
+      
+      let textSpan = document.createElement('span');
+      textSpan.className = 'option-text';
+      textSpan.innerText = opt.name;
+      headerDiv.appendChild(textSpan);
+
+      let previewDiv = document.createElement('div');
+      previewDiv.className = 'option-prompt-preview';
+      previewDiv.innerText = opt.prompt;
+
+      let editArea = document.createElement('div');
+      editArea.className = 'option-edit-area';
+      
+      let textarea = document.createElement('textarea');
+      textarea.value = opt.prompt;
+      
+      let saveBtn = document.createElement('button');
+      saveBtn.className = 'btn-save-inline';
+      saveBtn.innerHTML = '<i class="fa-solid fa-check"></i> Speichern';
+      
+      textarea.onclick = (e) => e.stopPropagation();
+      editArea.onclick = (e) => e.stopPropagation();
+      previewDiv.onclick = (e) => e.stopPropagation();
+      
+      saveBtn.onclick = (e) => {
+         e.stopPropagation();
+         opt.prompt = textarea.value;
+         renderCustomDropdown(); 
+         simpleLog(`System-Prompt für "${opt.name}" gespeichert.`, "ok");
+      };
+      
+      editArea.appendChild(textarea);
+      editArea.appendChild(saveBtn);
+
+      let actionsDiv = document.createElement('div');
+      if (opt.id !== 'custom') {
+        actionsDiv.className = 'option-actions';
+        
+        let infoIcon = document.createElement('i');
+        infoIcon.className = 'fa-solid fa-circle-info info-icon';
+        
+        infoIcon.onmouseenter = (e) => { 
+          if(editArea.style.display !== 'flex') previewDiv.style.display = 'block'; 
+        };
+        infoIcon.onmouseleave = (e) => { 
+          previewDiv.style.display = 'none'; 
+        };
+        
+        let editIcon = document.createElement('i');
+        editIcon.className = 'fa-solid fa-pen-to-squar edit-icon';
+        
+        editIcon.onclick = (e) => {
+          e.stopPropagation();
+          let isEditing = editArea.style.display === 'flex';
+          
+          if (!isEditing) {
+            document.querySelectorAll('.option-edit-area').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.option-prompt-preview').forEach(el => el.style.display = 'none');
+            editArea.style.display = 'flex';
+            textarea.focus();
+          } else {
+            editArea.style.display = 'none';
+          }
+        };
+
+        actionsDiv.appendChild(infoIcon);
+        actionsDiv.appendChild(editIcon);
+      } else {
+        actionsDiv.className = 'option-actions custom-row-action';
+        let customIcon = document.createElement('i');
+        customIcon.className = 'fa-solid fa-image';
+        actionsDiv.appendChild(customIcon);
+      }
+      
+      headerDiv.appendChild(actionsDiv);
+      div.appendChild(headerDiv);
+      
+      if (opt.id !== 'custom') {
+        div.appendChild(previewDiv);
+        div.appendChild(editArea);
+      }
+
+      headerDiv.onclick = (e) => {
+        if (e.target.closest('.option-actions')) return;
+        
+        currentStyleValue = opt.id;
+        document.getElementById('style-dropdown').classList.remove('open');
+        renderCustomDropdown();
+        if (opt.id === 'custom') {
+          document.getElementById('modal-dropzone').style.display = 'flex';
+        }
+      };
+
+      container.appendChild(div);
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    renderCustomDropdown();
+    updatePlaceholders();
+  });
+
+  window.closeDropzoneModal = function() {
+    document.getElementById('modal-dropzone').style.display = 'none';
+  };
+
+  const dropZone = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('file-input');
+  const dropPreview = document.getElementById('drop-preview');
+  const btnRemoveRef = document.getElementById('btn-remove-ref');
+  const dropText = document.getElementById('drop-text');
+  const dropIcon = document.getElementById('drop-icon');
+
+  dropZone.addEventListener('click', () => { if (!refImageData) fileInput.click(); });
+  dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('dragover'); });
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault(); dropZone.classList.remove('dragover');
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change', (e) => {
+    if (e.target.files && e.target.files.length > 0) handleFile(e.target.files[0]);
+  });
+  btnRemoveRef.addEventListener('click', (e) => {
+    e.stopPropagation(); refImageData = null; refImageMimeType = null;
+    dropPreview.src = ''; dropPreview.style.display = 'none'; btnRemoveRef.style.display = 'none';
+    dropText.style.display = 'block'; dropIcon.style.display = 'block'; fileInput.value = '';
+    dropZone.style.padding = '35px 20px';
+  });
+
+  function handleFile(file) {
+    if (!file.type.startsWith('image/')) { alert('Bitte nur ein Bild hochladen.'); return; }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      refImageData = e.target.result.split(',')[1];
+      refImageMimeType = file.type;
+      dropPreview.src = e.target.result; dropPreview.style.display = 'block';
+      btnRemoveRef.style.display = 'flex'; dropText.style.display = 'none';
+      dropIcon.style.display = 'none'; dropZone.style.padding = '10px';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  window.openLightbox = function(src) {
+    document.getElementById('lightbox-img').src = src;
+    document.getElementById('lightbox').style.display = 'flex';
+  };
+  window.closeLightbox = function() {
+    document.getElementById('lightbox').style.display = 'none';
+    document.getElementById('lightbox-img').src = '';
+  };
+
+  function updatePlaceholders() {
+    const gallery = document.getElementById('gallery');
+    const inputs = document.querySelectorAll('.prompt-input');
+    gallery.innerHTML = '';
+    for (let i = 0; i < inputs.length; i++) {
+       gallery.innerHTML += '<div class="placeholder"><i class="fa-solid fa-image fa-2x"></i></div>';
+    }
+  }
+
+  window.addPrompt = function() {
+    const container = document.getElementById('prompt-container');
+    const count = container.children.length + 1;
+    const row = document.createElement('div');
+    row.className = 'prompt-row';
+    row.innerHTML = `
+      <input type="text" class="prompt-input" placeholder="Bild ${count}: Motiv beschreiben..." oninput="updatePlaceholders()">
+      <button class="btn-icon" onclick="removePrompt(this)" title="Löschen"><i class="fa-solid fa-trash"></i></button>
+    `;
+    container.appendChild(row);
+    updatePlaceholders();
+  };
+
+  window.removePrompt = function(btn) {
+    const container = document.getElementById('prompt-container');
+    if (container.children.length > 1) {
+      btn.parentElement.remove();
+      updatePlaceholders();
+    }else {
+      alert("Du brauchst mindestens einen Text für den Batch.");
+    }
+  };
+
+  function cleanupPendingPlaceholders() {
+    const placeholders = document.querySelectorAll('.placeholder');
+    placeholders.forEach(ph => {
+      ph.classList.remove('active');
+      ph.style.borderColor = '#94a3b8';
+      ph.style.color = '#94a3b8';
+      ph.innerHTML = '<i class="fa-solid fa-ban fa-2x"></i><span style="font-size:0.8rem">Abgebrochen</span>';
+    });
+  }
+
+  window.cancelBatch = function() {
+    batchCancelled = true;
+    if (activeAbortController) {
+      activeAbortController.abort();
+    }
+    simpleLog("🔴 Vorgang durch Benutzer sofort gestoppt.", 'err');
+    
+    cleanupPendingPlaceholders();
+    
+    document.getElementById('btn-cancel').style.display = 'none';
+    document.getElementById('btn-run').style.display = 'flex';
+    document.getElementById('btn-run').disabled = false;
+  };
+
+  window.downloadAllZip = async function() {
+    if (generatedImagesGlobal.length === 0) return;
+    simpleLog("Erlle ZIP-Archiv...");
+    var zip = new JSZip();
+    for (var i = 0; i < generatedImagesGlobal.length; i++) {
+      zip.file(generatedImagesGlobal[i].filename, generatedImagesGlobal[i].blob);
+    }
+    var content = await zip.generateAsync({ type: "blob" });
+    var url = URL.createObjectURL(content);
+    var a = document.createElement("a");
+    a.href = url; a.download = "NanaBanana_Batch.zip"; a.click();
+    URL.revokeObjectURL(url);
+    simpleLog("ZIP heruntergeladen (" + generatedImagesGlobal.length + " Bilder).", 'ok');
+  };
+
+  const activeLogs = new Map();
+
+  function simpleLog(msg, type = 'terminal') {
+    const logBox = document.getElementById('log-container');
+    logBox.innerHTML += `<div class="log-entry log-${type}">> [${new Date().toLocaleTimeString()}] ${msg}</div>`;
+    logBox.scrollTop = logBox.scrollHeight;
+  }
+
+  function createActiveLog(baseMsg, isImageGen = false, idx = 0, total = 0, modelLabel = "") {
+    const logBox = document.getElementById('log-container');
+    const id = 'log-' + Date.now() + Math.floor(Math.random() * 1000);
+    const startTime = Date.now();
+    
+    logBox.innerHTML += `
+      <div id="${id}" class="log-entry log-active">
+        <span class="log-text">> ${baseMsg}</span><span class="dots"></span><span class="timer">[0s]</span>
+      </div>`;
+      
+    logBox.scrollTop = logBox.scrollHeight;
+    
+    let dotCount = 0;
+    const interval = setInterval(() => {
+      const el = document.getElementById(id);
+      if (!el) {
+         clearInterval(interval);
+         return;
+      }
+      
+      dotCount = (dotCount + 1) % 4;
+      let elapsed = Math.floor((Date.now() - startTime) / 1000);
+      
+      const textSpan = el.querySelector('.log-text');
+      const dotSpan = el.querySelector('.dots');
+      const timerSpan = el.querySelector('.timer');
+      
+      if (isImageGen && textSpan) {
+         if (elapsed < 2) textSpan.innerText = `> Sende Bild ${idx}/${total} an Server`;
+         else if (elapsed < 10) textSpan.innerText = `> Bild ${idx}/${total} wird generiert (${modelLabel})`;
+         else if (elapsed < 60) textSpan.innerText = `> Bild ${idx}/${total} wird verarbeitet (${modelLabel})`;
+         else textSpan.innerText = `> Bild ${idx}/${total} dauert länger als gewöhnlich (Server überlastet?)`;
+      }
+      
+      if (dotSpan) dotSpan.innerText = '.'.repeat(dotCount);
+      if (timerSpan) timerSpan.innerText = `[${elapsed}s]`;
+      
+    }, 400);
+    
+    const logObj = { id, interval };
+    activeLogs.set(id, logObj);
+    return logObj;
+  }
+
+  function completeActiveLog(logObj, finalMsg, type="ok") {
+    if (!logObj || !activeLogs.has(logObj.id)) return;
+    clearInterval(logObj.interval);
+    activeLogs.delete(logObj.id);
+    
+    const el = document.getElementById(logObj.id);
+    if (el) {
+      el.className = `log-entry log-${type}`;
+      el.innerHTML = `> [${new Date().toLocaleTimeString()}] ${finalMsg}`;
+    }
+    
+    const logBox = document.getElementById('log-container');
+    logBox.scrollTop = logBox.scrollHeight;
+  }
+
+  function base64ToBlob(base64, mimeType) {
+    const byteCharacters = atob(base64);
+    const byteArrays = [];
+    for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+      const slice = byteCharacters.slice(offset, offset + 512);
+      const byteNumbers = new Array(slice.length);
+      for (let i = 0; i < slice.length; i++) byteNumbers[i] = slice.charCodeAt(i);
+      byteArrays.push(new Uint8Array(byteNumbers));
+    }
+    return new Blob(byteArrays, { type: mimeType });
+  }
+
+  const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+  function isRetryableError(response, data) {
+    if (response.status === 429 || response.status === 503 || response.status === 500) return true;
+    const msg = (data?.error?.message || '').toLowerCase();
+    return RETRYABLE_KEYWORDS.some(kw => msg.includes(kw));
+  }
+
+  function apiUrl(modelId) {
+    return `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${API_KEY}`;
+  }
+
+  async function callImageApi(modelId, promptText, aspect) {
+    const modalities = ["IMAGE"];
+    let partsArray = [{ text: promptText }];
+    if (refImageData && refImageMimeType) {
+      partsArray.push({ inlineData: { data: refImageData, mimeType: refImageMimeType } });
+    }
+    
+    const requestOptions = {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: partsArray }],
+        generationConfig: { responseModalities: modalities, imageConfig: { aspectRatio: aspect } }
+      })
+    };
+
+    if (activeAbortController) {
+      requestOptions.signal = activeAbortController.signal;
+    }
+
+    const response = await fetch(apiUrl(modelId), requestOptions);
+    const data = await response.json();
+    return { response, data };
+  }
+
+  async function generateWithRetry(promptText, idx, total, mimeType, modelMode, aspect) {
+    var models;
+    if (modelMode === 'nb1') { models = [{ id: MODEL_NB1, label: 'Nano Banana 1', maxRetries: 5 }]; } 
+    else if (modelMode === 'nb2') { models = [{ id: MODEL_NB2, label: 'Nano Banana 2', maxRetries: 5 }]; } 
+    else {
+      models = [
+        { id: MODEL_NB2, label: 'Nano Banana 2', maxRetries: 2 },
+        { id: MODEL_NB1, label: 'Nano Banana 1 (Fallback)', maxRetries: 5 }
+      ];
+    }
+
+    for (var m = 0; m < models.length; m++) {
+      var model = models[m];
+      var isFallback = m > 0;
+      if (isFallback) simpleLog(`Bild ${idx}: Wechsle zu ${model.label}...`, 'warn');
+
+      for (var attempt = 1; attempt <= model.maxRetries; attempt++) {
+        if (batchCancelled) return null;
+
+        let activeLog;
+
+        if (attempt > 1) {
+          var waitSec = Math.min(15 + (attempt - 1) * 20, 60);
+          activeLog = createActiveLog(`Bild ${idx} · Versuch ${attempt}/${model.maxRetries} – warte auf Server-Abkühlung `);
+          
+          try { await sleep(waitSec * 1000); } catch(e){}
+          
+          if (batchCancelled) { completeActiveLog(activeLog, "Gestoppt.", 'warn'); return null; }
+          completeActiveLog(activeLog, `Abkühlung ferttarte Versuch ${attempt}...`, "terminal");
+        }
+
+        activeLog = createActiveLog("", true, idx, total, model.label);
+
+        try {
+          var result = await callImageApi(model.id, promptText, aspect);
+          var response = result.response;
+          var data = result.data;
+
+          if (!response.ok) {
+            var errMsg = (data.error && data.error.message) ? data.error.message : 'Server Error';
+            if (isRetryableError(response, data) && attempt < model.maxRetries) {
+              completeActiveLog(activeLog, `Bild ${idx}: Server beschäftigt – neuer Versuch...`, 'warn');
+              continue;
+            }
+            if (!isFallback) { completeActiveLog(activeLog, `${model.label} gescheitert: ${errMsg}`, 'err'); break; }
+            throw new Error(errMsg);
+          }
+          
+          if (data.candidates && data.candidates[0] && data.candidates[0].finishReason === 'SAFETY') {
+             throw new Error("Vom Sicherheitsfilter blockiert. Bitte Motiv anpassen.");
+       }
+
+          var parts = (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) ? data.candidates[0].content.parts : [];
+          var imagePart = null;
+          
+          for (var p = 0; p < parts.length; p++) {
+            if (parts[p].inlineData) { imagePart = parts[p]; break; }
+          }
+
+          if (!imagePart) {
+            let textReply = parts.find(p => p.text)?.text || "";
+            if (textReply) {
+                throw new Error("MOD_TEXT_REPLY: " + textReply.substring(0, 40) + "...");
+            } else {
+                throw new Error("Fehler: API-Antwort enthält kein Bild.");
+            }
+          }
+
+          var blob = base64ToBlob(imagePart.inlineData.data, mimeType);
+          
+          completeActiveLog(activeLog, `Bild ${idx} erfolgreich erstellt!`, 'ok');
+          return blob;
+
+        } catch (error) {
+          if (error.name === 'AbortError') {
+             completeActiveLog(activeLog, `Generierung für Bild ${idx} wde abgebrochen.`, 'err');
+             return null;
+          }
+
+          var emsg = (error.message || '').toLowerCase();
+          var retryable = false;
+          
+          if (!emsg.includes('mod_text_reply') && !emsg.includes('sicherheitsfilter')) {
+            for (var k = 0; k < RETRYABLE_KEYWORDS.length; k++) {
+              if (emsg.indexOf(RETRYABLE_KEYWORDS[k]) !== -1) { retryable = true; break; }
+            }
+          }
+          
+          if (retryable && attempt < model.maxRetries) {
+            completeActiveLog(activeLog, `Bild ${idx}: Server antwortet nicht sauber – neuer Versuch...`, 'warn');
+            continue;
+          }
+          if (!isFallback) {
+            let errorShow = emsg.includes('mod_text_reply') ? "Modell antwortet nur mit Text (Prompt zu komplex)" : error.message;
+            completeActiveLog(activeLog, `${model.label}: ${errorShow} → Fallback...`, 'warn');
+            break;
+          }
+          
+          let finalErrorShow = emsg.includes('mod_text_reply') ? "Modell antwortet nur mit Text (Prompt anpassen)" : error.message;
+          completeActiveLog(activeLog, `Fehler Bild ${idx}: ${finalErrorShow}`, 'err');
+          return null;
+        }
+      }
+    }
+    return null;
+  }
+
+  function placeResult(i, blob, fileExt, generatedImages) {
+    if (blob) {
+      var filename = 'NanoBanana_' + (i + 1) + '_' + Date.now() + '.' + fileExt;
+      generatedImages.push({ filename: filename, blob: blob });
+      var url = URL.createObjectURL(blob);
+      var ph = document.getElementById('placeholder-' + i);
+      if (ph) {
+        var wrapper = document.createElement('div');
+        wrapper.className = 'img-wrapper';
+        wrapper.innerHTML =
+          '<img src="' + url + '" alt="Bild ' + (i + 1) + '" onclick="openLightbox(\'' + url + '\')" title="Klicken zum Vergrößern">' +
+          '<a class="btn-dl-single" href="' + url + '" download="' + filename + '">' +
+          '<i class="fa-solid fa-download"></i> Download' +
+          '</a>';
+        ph.replaceWith(wrapper);
+    }
+    } else {
+      var ph2 = document.getElementById('placeholder-' + i);
+      if (ph2) {
+        ph2.classList.remove('active');
+        if (batchCancelled) {
+          ph2.innerHTML = '<i class="fa-solid fa-ban fa-2x"></i><span style="font-size:0.8rem">Abgebrochen</span>';
+          ph2.style.borderColor = '#94a3b8';
+          ph2.style.color = '#94a3b8';
+        } else {
+          ph2.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:#ef4444;"></i><span style="font-size:0.8rem">Fehler</span>';
+          ph2.style.borderColor = '#ef4444';
+          ph2.style.color = '#ef4444';
+        }
+      }
+    }
+  }
+
+  window.startBatch = async function() {
+    var promptInputs = [];
+    var inputs = document.querySelectorAll('.prompt-input');
+    for (var i = 0; i < inputs.length; i++) {
+      var v = inputs[i].value.trim();
+      if (v !== "") promptInputs.push(v);
+    }
+    
+    if (promptInputs.length === 0) return alert("Bitte schreibe einen Text auf!");
+
+    var aspect   = document.getElementById('sel-aspect').value;
+    var mimeType = document.getElementById('sel-format').value;
+    var modelMode  = document.getElementById('sel-model').value;
+    var batchMode  = document.getElementById('sel-batch-mode').value;
+    var fileExt    = mimeType === 'image/jpeg' ? 'jpg' : 'png';
+
+    let activeStyleObj = styleOptions.find(s => s.id === currentStyleValue);
+
+    batchCancelled = false;
+    activeAbortController = new AbortController();
+
+    generatedImagesGlobal = [];
+    document.getElementById('btn-run').disabled = true;
+    document.getElementById('btn-run').style.display = 'none';
+    document.getElementById('btn-cancel').style.display = 'flex';
+    document.getElementById('btn-zip').style.display = 'none';
+    
+    var gallery = document.getElementById('gallery');
+    gallery.innerHTML = '';
+    document.getElementById('log-container').innerHTML = '';
+
+    var modelLabel = modelMode === 'nb1' ? 'NB1' : modelMode === 'nb2' ? 'NB2' : 'Auto (NB2→NB1)';
+    var modeLabel = batchMode === 'parallel' ? 'Parallel' : 'Nacheinander';
+    
+    var refStatus = refImageData ? ' + Bildreferenz aktiv' : '';
+    simpleLog('Start · ' + promptInputs.length + ' Bilder · ' + modelLabel + ' · ' + modeLabel + refStatus);
+
+    for (var j = 0; j < promptInputs.length; j++) {
+      if (batchMode === 'parallel') {
+        gallery.innerHTML += '<div class="placeholder active" id="placeholder-' + j + '"><i class="fa-solid fa-spinner fa-spin fa-2x"></i><span style="font-size:0.8rem">Lädt...</span></div>';
+      } else {
+        gallery.innerHTML += '<div class="placeholder" id="placeholder-' + j + '"><i class="fa-solid fa-hourglass-half fa-2x" style="color:#cbd5e1;"></i><span style="font-size:0.8rem; color:#cbd5e1;">Wartet...</span></div>';
+      }
+    }
+
+    var generatedImages = [];
+    var prompts = [];
+    
+    for (var k = 0; k < promptInputs.length; k++) {
+      let finalPrompt = "[WICHTIGE REGELN]\nMOTIV: " + promptInputs[k] + "\nBILD-FORMAT (ASPECT RATIO): Zwingend " + aspect + ".\n\n[ANTI-TEXT-REGEL]:\nGeneriere ABSOLUT KEINEN TEXT, keine Wasserzeichen, keine Buchstaben und keine zufälligen Wörter im Bild, es sei denn, das Motiv verlangt explizit danach. Das Bild muss völlig frei von unaufgeforderter Schrift sein!";
+      
+      if (activeStyleObj && activeStyleObj.id !== "custom") {
+        finalPrompt = activeStyleObj.prompt + "\n\n" + finalPrompt;
+      }
+      
+      if (refImageData) {
+        finalPrompt += "\n\n[REFERENZBILD-REGEL]\nDas hochgeladene Referenzbild GIBT DEN STIL ZWINGEND VOR. Übernimm die Strukturen, Farben und den exakten Look absolut strikt auf das beschriebene Motiv. Falls das Referenzbild spezifische Logos oder grafische Identitäten enthält, dürfen diese organisch übernommen werden. Erfinde aber KEINEN NEUEN, zufälligen Text dazu!";
+      }
+      
+      prompts.push(finalPrompt);
+    }
+
+    if (batchMode === 'parallel') {
+      var promises = [];
+      for (var pi = 0; pi < prompts.length; pi++) {
+        (function(idx) {
+          promises.push((async function() {
+            await sleep(idx * 500);
+            if (batchCancelled) { return null; }
+            var blob = await generateWithRetry(prompts[idx], idx + 1, prompts.length, mimeType, modelMode, aspect);
+            if (!batchCancelled) placeResult(idx, blob, fileExt, generatedImages);
+            return blob;
+          })());
+        })(pi);
+      }
+      await Promise.all(promises);
+    } else {
+      for (var si = 0; si < prompts.length; si++) {
+        if (batchCancelled) break;
+        
+        let currentPh = document.getElementById('placeholder-' + si);
+        if (currentPh) {
+          currentPh.classList.add('active');
+          currentPh.innerHTML = '<i class="fa-solid fa-spinner fa-spin fa-2x"></i><span style="font-size:0.8rem">Lädt...</span>';
+          currentPh.style.color = '#94a3b8';
+        }
+
+        var blob = await generateWithRetry(prompts[si], si + 1, prompts.length, mimeType, modelMode, aspect);
+        
+        if (batchCancelled) break;
+        
+        placeResult(si, blob, fileExt, generatedImages);
+        
+        if (!batchCancelled && si < prompts.length - 1) {
+          let cooldownLog = createActiveLog("Kühle API ab (Rate Limit Schutz) ");
+          try { await sleep(1500); } catch(e){}
+          completeActiveLog(cooldownLog, "Abkühlphase beendet.");
+        }
+      }
+    }
+
+    document.getElementById('btn-cancel').style.display = 'none';
+    document.getElementById('btn-run').style.display = 'flex';
+    document.getElementById('btn-run').disabled = false;
+
+    generatedImagesGlobal = generatedImages;
+
+    if (batchCancelled) {
+      cleanupPendingPlaceholders();
+      simpleLog("Batch beendet. " + generatedImages.length + " Bilder erfolgreich abgeschlossen.", 'warn');
+    } else {
+      simpleLog("Alle Bilder erfolgreich verarbeitet! (" + generatedImages.length + "/" + promptInputs.length + ")", 'ok');
+    }
+
+    if (generatedImages.length > 0) {
+      document.getElementById('btn-zip').style.display = 'flex';
+    }
+  };
+</script>
+</body>
+</html>
