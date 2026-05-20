@@ -373,9 +373,112 @@
   
   @media (max-width: 992px) { .main-wrapper { grid-template-columns: 1fr; } .card-top { height: auto; } }
   @media (max-width: 600px) { .grid-2 { grid-template-columns: 1fr; } }
+  .roots-auth-overlay{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:var(--status-bg,#f8fafc);padding:2rem 1rem;font-family:'Circular Std',system-ui,sans-serif}
+  .roots-login-card{background:var(--bg,#fff);border-radius:16px;box-shadow:0 20px 50px rgba(0,0,0,.2);width:100%;max-width:440px;padding:3rem 2.5rem}
+  .roots-logo-wrap{text-align:center;margin-bottom:2rem}
+  .roots-logo-wrap img{height:32px}
+  .roots-card-title{font-size:1.5rem;font-weight:700;text-align:center;margin-bottom:.4rem;color:var(--ink,#0f172a)}
+  .roots-card-sub{font-size:.95rem;color:var(--muted,#475569);text-align:center;margin-bottom:2rem}
+  .roots-form-group{margin-bottom:1.25rem}
+  .roots-form-group label{display:block;font-size:.875rem;font-weight:500;color:var(--muted,#475569);margin-bottom:.4rem}
+  .roots-input-wrap{position:relative}
+  .roots-input-wrap .roots-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--muted,#475569);font-size:.875rem;pointer-events:none}
+  .roots-input-wrap input{width:100%;height:44px;padding:0 12px 0 38px;border:1px solid var(--line,#e2e8f0);border-radius:8px;font-family:inherit;font-size:.95rem;color:var(--ink,#0f172a);background:var(--bg,#fff);outline:none;transition:border-color .2s,box-shadow .2s}
+  .roots-input-wrap input:focus{border-color:#206efb;box-shadow:0 0 0 3px rgba(32,110,251,.15)}
+  .roots-forgot-row{display:flex;justify-content:flex-end;margin-top:-.5rem;margin-bottom:1.5rem}
+  .roots-link{font-size:.85rem;color:#206efb;text-decoration:none;background:none;border:none;cursor:pointer;font-family:inherit;padding:0}
+  .roots-link:hover{color:#165fd9;text-decoration:underline}
+  .roots-btn-primary{display:flex;align-items:center;justify-content:center;gap:.5rem;width:100%;padding:.8rem 1.6rem;background:#206efb;color:#fff;border:none;border-radius:999px;font-family:inherit;font-size:1rem;font-weight:500;cursor:pointer;box-shadow:0 6px 20px rgba(15,23,42,.08);transition:all .3s;margin-top:.25rem}
+  .roots-btn-primary:hover{background:#165fd9;transform:translateY(-2px)}
+  .roots-btn-primary:disabled{background:#cbd5e1;color:#64748b;box-shadow:none;transform:none;cursor:not-allowed}
+  .roots-alert{border-radius:8px;padding:.85rem 1rem;font-size:.9rem;display:none;align-items:flex-start;gap:.6rem;margin-bottom:1.25rem}
+  .roots-alert.visible{display:flex}
+  .roots-alert-error{background:#f8fafc;border-left:4px solid #0f172a;color:#0f172a}
+  .roots-alert-success{background:#eff6ff;border-left:4px solid #206efb;color:#165fd9}
+  .roots-card-footer{margin-top:1.75rem;text-align:center;font-size:.85rem;color:var(--muted,#475569)}
+  @keyframes roots-spin{to{transform:rotate(360deg)}}
+  .roots-spin{animation:roots-spin .8s linear infinite}
+  @media (prefers-color-scheme:dark){
+    .roots-auth-overlay{background:#0f172a}
+    .roots-login-card{background:#1e293b;box-shadow:0 20px 50px rgba(0,0,0,.5)}
+    .roots-input-wrap input{background:#0f172a;border-color:#334155;color:#f8fafc}
+    .roots-input-wrap input:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.2)}
+  }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+
+<button id="roots-logout-btn" style="position:fixed;top:12px;right:12px;z-index:9998;height:36px;padding:0 14px;font-size:.85rem;font-family:inherit;font-weight:500;display:none;align-items:center;gap:7px;background:#fff;border:1px solid #e2e8f0;color:#0f172a;border-radius:999px;cursor:pointer;transition:all .2s" title="Abmelden">
+  <i class="fa-solid fa-right-from-bracket"></i> Abmelden
+</button>
+
+<div id="roots-auth-overlay" class="roots-auth-overlay">
+  <div class="roots-login-card">
+    <div class="roots-logo-wrap">
+      <img src="https://roots-consultants.de/wp-content/uploads/2025/04/Roots-Brand-Strategy-Consultants-Logo.svg" alt="ROOTS" />
+    </div>
+    <div id="roots-view-login">
+      <h1 class="roots-card-title">Willkommen zurück</h1>
+      <p class="roots-card-sub">Melde dich bei deinem ROOTS-Konto an.</p>
+      <div id="roots-error-banner" class="roots-alert roots-alert-error">
+        <i class="fa-solid fa-circle-exclamation"></i><span id="roots-error-text"></span>
+      </div>
+      <form id="roots-login-form" novalidate>
+        <div class="roots-form-group">
+          <label for="roots-email">E-Mail-Adresse</label>
+          <div class="roots-input-wrap">
+            <i class="fa-regular fa-envelope roots-icon"></i>
+            <input type="email" id="roots-email" placeholder="name@roots-consultants.com" autocomplete="email" required />
+          </div>
+        </div>
+        <div class="roots-form-group">
+          <label for="roots-password">Passwort</label>
+          <div class="roots-input-wrap">
+            <i class="fa-solid fa-lock roots-icon"></i>
+            <input type="password" id="roots-password" placeholder="••••••••" autocomplete="current-password" required />
+          </div>
+        </div>
+        <div class="roots-forgot-row">
+          <button type="button" class="roots-link" id="roots-go-forgot">Passwort vergessen?</button>
+        </div>
+        <button type="submit" class="roots-btn-primary" id="roots-login-btn">
+          <i class="fa-solid fa-arrow-right-to-bracket"></i> Anmelden
+        </button>
+      </form>
+      <div class="roots-card-footer">
+        Noch kein Konto?&nbsp;<a href="mailto:info@roots-consultants.com?subject=Zugang%20anfragen" class="roots-link">Zugang anfragen</a>
+      </div>
+    </div>
+    <div id="roots-view-forgot" style="display:none">
+      <h1 class="roots-card-title">Passwort zurücksetzen</h1>
+      <p class="roots-card-sub">Gib deine E-Mail ein – wir schicken dir einen Link.</p>
+      <div id="roots-reset-error" class="roots-alert roots-alert-error">
+        <i class="fa-solid fa-circle-exclamation"></i><span id="roots-reset-error-text"></span>
+      </div>
+      <div id="roots-reset-success" class="roots-alert roots-alert-success">
+        <i class="fa-solid fa-circle-check"></i><span>E-Mail versendet! Bitte prüfe deinen Posteingang.</span>
+      </div>
+      <form id="roots-forgot-form" novalidate>
+        <div class="roots-form-group">
+          <label for="roots-reset-email">E-Mail-Adresse</label>
+          <div class="roots-input-wrap">
+            <i class="fa-regular fa-envelope roots-icon"></i>
+            <input type="email" id="roots-reset-email" placeholder="name@roots-consultants.com" autocomplete="email" required />
+          </div>
+        </div>
+        <button type="submit" class="roots-btn-primary" id="roots-reset-btn">
+          <i class="fa-solid fa-paper-plane"></i> Link senden
+        </button>
+      </form>
+      <div class="roots-card-footer" style="margin-top:1.25rem">
+        <button type="button" class="roots-link" id="roots-go-login">
+          <i class="fa-solid fa-arrow-left" style="font-size:.75rem;margin-right:4px"></i> Zurück zum Login
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div id="modal-dropzone" class="modal-overlay">
   <div class="modal-content">
@@ -1257,6 +1360,52 @@
       document.getElementById('btn-zip').style.display = 'flex';
     }
   };
+</script>
+<script>
+(function(){
+  const SB_URL='https://csmguwcvzreefluhahyu.supabase.co';
+  const SB_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNzbWd1d2N2enJlZWZsdWhhaHl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5NjM0ODcsImV4cCI6MjA5MjUzOTQ4N30.Fiafx7XBaQZXUX3bKQIBH7znBHx3B51yL-bftOHsL4Q';
+  const {createClient}=window.supabase;
+  const sb=createClient(SB_URL,SB_ANON);
+  const overlay=document.getElementById('roots-auth-overlay');
+  const vLogin=document.getElementById('roots-view-login');
+  const vForgot=document.getElementById('roots-view-forgot');
+  const logoutBtn=document.getElementById('roots-logout-btn');
+  sb.auth.getSession().then(({data:{session}})=>{
+    if(session){overlay.remove();logoutBtn.style.display='flex';}
+  });
+  sb.auth.onAuthStateChange((event,session)=>{
+    if(session){overlay.remove();logoutBtn.style.display='flex';}
+    else if(event==='SIGNED_OUT'){overlay.style.display='flex';logoutBtn.style.display='none';vLogin.style.display='block';vForgot.style.display='none';}
+  });
+  document.getElementById('roots-login-form').addEventListener('submit',async(e)=>{
+    e.preventDefault();
+    const email=document.getElementById('roots-email').value.trim();
+    const pw=document.getElementById('roots-password').value;
+    const btn=document.getElementById('roots-login-btn');
+    const errB=document.getElementById('roots-error-banner');
+    const errT=document.getElementById('roots-error-text');
+    btn.disabled=true;
+    btn.innerHTML='<i class="fa-solid fa-circle-notch roots-spin"></i> Anmelden...';
+    errB.classList.remove('visible');
+    const {error}=await sb.auth.signInWithPassword({email,password:pw});
+    if(error){errB.classList.add('visible');errT.textContent='Ungültige E-Mail oder falsches Passwort.';btn.disabled=false;btn.innerHTML='<i class="fa-solid fa-arrow-right-to-bracket"></i> Anmelden';}
+  });
+  document.getElementById('roots-forgot-form').addEventListener('submit',async(e)=>{
+    e.preventDefault();
+    const email=document.getElementById('roots-reset-email').value.trim();
+    const btn=document.getElementById('roots-reset-btn');
+    const errEl=document.getElementById('roots-reset-error');
+    const okEl=document.getElementById('roots-reset-success');
+    btn.disabled=true;errEl.classList.remove('visible');okEl.classList.remove('visible');
+    const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:window.location.href});
+    if(error){errEl.classList.add('visible');document.getElementById('roots-reset-error-text').textContent=error.message;btn.disabled=false;}
+    else{okEl.classList.add('visible');btn.disabled=false;}
+  });
+  document.getElementById('roots-go-forgot').addEventListener('click',()=>{vLogin.style.display='none';vForgot.style.display='block';});
+  document.getElementById('roots-go-login').addEventListener('click',()=>{vForgot.style.display='none';vLogin.style.display='block';});
+  logoutBtn.addEventListener('click',()=>sb.auth.signOut());
+})();
 </script>
 </body>
 </html>
