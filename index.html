@@ -502,6 +502,8 @@
 <div class="header">
   <h1><i class="fa-solid fa-layer-group" style="color: var(--brand);"></i> Image Generation Tool</h1>
   <p>Entwickelt von ROOTS Brand Strategy Consultants GmbH</p>
+  <div id="roots-header-avatar" style="cursor:pointer;margin-left:auto" title="Profil"></div>
+  <span id="roots-header-name" style="font-size:13px;color:var(--muted,#475569);cursor:pointer;white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis;margin:0 8px"></span>
 </div>
 
 <div class="main-wrapper">
@@ -1372,10 +1374,10 @@
   const vForgot=document.getElementById('roots-view-forgot');
   const logoutBtn=document.getElementById('roots-logout-btn');
   sb.auth.getSession().then(({data:{session}})=>{
-    if(session){overlay.remove();logoutBtn.style.display='flex';}
+    if(session){overlay.remove();logoutBtn.style.display='flex';window.RootsUser&&RootsUser._loadAndMount(sb);}
   });
   sb.auth.onAuthStateChange((event,session)=>{
-    if(session){overlay.remove();logoutBtn.style.display='flex';}
+    if(session){overlay.remove();logoutBtn.style.display='flex';window.RootsUser&&RootsUser._loadAndMount(sb);}
     else if(event==='SIGNED_OUT'){overlay.style.display='flex';logoutBtn.style.display='none';vLogin.style.display='block';vForgot.style.display='none';}
   });
   document.getElementById('roots-login-form').addEventListener('submit',async(e)=>{
@@ -1404,8 +1406,82 @@
   });
   document.getElementById('roots-go-forgot').addEventListener('click',()=>{vLogin.style.display='none';vForgot.style.display='block';});
   document.getElementById('roots-go-login').addEventListener('click',()=>{vForgot.style.display='none';vLogin.style.display='block';});
+  logoutBtn.onclick=()=>{ sb.auth.signOut(); };
   logoutBtn.addEventListener('click',()=>sb.auth.signOut());
 })();
+</script>
+<!-- ROOTS User Settings Modal -->
+<div id="roots-user-settings-modal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.6);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:1rem;font-family:'Circular Std',system-ui,sans-serif">
+  <div style="background:var(--bg,#fff);border-radius:16px;box-shadow:0 20px 50px rgba(0,0,0,.25);width:100%;max-width:460px;padding:2rem">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem">
+      <h2 style="font-size:1.1rem;font-weight:700;color:var(--ink,#0f172a);margin:0">Mein Profil</h2>
+      <button onclick="window.RootsUser.closeSettings()" style="background:none;border:none;cursor:pointer;color:var(--muted,#475569);font-size:1.1rem;padding:4px"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div style="text-align:center;margin-bottom:1.25rem">
+      <div id="rus-preview" style="display:inline-block;margin-bottom:.75rem"></div>
+      <input id="rus-avatar-url" type="url" placeholder="Avatar-URL (optional)" style="width:100%;height:38px;padding:0 12px;border:1px solid var(--line,#e2e8f0);border-radius:8px;font-family:inherit;font-size:.82rem;color:var(--ink,#0f172a);background:var(--bg,#fff);outline:none;box-sizing:border-box" oninput="document.getElementById('rus-preview').innerHTML=window.RootsUser._previewAvatar(this.value)">
+    </div>
+    <div style="display:grid;gap:.85rem">
+      <div><label style="display:block;font-size:.75rem;font-weight:600;color:var(--muted,#475569);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.3rem">Vollständiger Name</label><input id="rus-name" type="text" style="width:100%;height:42px;padding:0 12px;border:1px solid var(--line,#e2e8f0);border-radius:8px;font-family:inherit;font-size:.9rem;color:var(--ink,#0f172a);background:var(--bg,#fff);outline:none;box-sizing:border-box"></div>
+      <div><label style="display:block;font-size:.75rem;font-weight:600;color:var(--muted,#475569);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.3rem">E-Mail</label><input id="rus-email" type="email" style="width:100%;height:42px;padding:0 12px;border:1px solid var(--line,#e2e8f0);border-radius:8px;font-family:inherit;font-size:.9rem;color:var(--ink,#0f172a);background:var(--bg,#fff);outline:none;box-sizing:border-box"><p style="font-size:.72rem;color:var(--muted,#475569);margin:.25rem 0 0">Änderung erfordert E-Mail-Bestätigung.</p></div>
+      <div><label style="display:block;font-size:.75rem;font-weight:600;color:var(--muted,#475569);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.3rem">Position</label><input id="rus-position" type="text" placeholder="z.B. Brand Consultant" style="width:100%;height:42px;padding:0 12px;border:1px solid var(--line,#e2e8f0);border-radius:8px;font-family:inherit;font-size:.9rem;color:var(--ink,#0f172a);background:var(--bg,#fff);outline:none;box-sizing:border-box"></div>
+      <div><label style="display:block;font-size:.75rem;font-weight:600;color:var(--muted,#475569);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.3rem">LinkedIn</label><input id="rus-linkedin" type="url" placeholder="https://linkedin.com/in/..." style="width:100%;height:42px;padding:0 12px;border:1px solid var(--line,#e2e8f0);border-radius:8px;font-family:inherit;font-size:.9rem;color:var(--ink,#0f172a);background:var(--bg,#fff);outline:none;box-sizing:border-box"></div>
+    </div>
+    <div style="display:flex;gap:.75rem;margin-top:1.5rem">
+      <button id="rus-save" onclick="window.RootsUser.saveSettings()" style="flex:1;height:42px;background:#206efb;color:#fff;border:none;border-radius:999px;font-family:inherit;font-size:.9rem;font-weight:600;cursor:pointer;transition:background .2s">Speichern</button>
+      <button onclick="window.RootsUser.closeSettings()" style="height:42px;padding:0 1.25rem;background:none;border:1px solid var(--line,#e2e8f0);color:var(--ink,#0f172a);border-radius:999px;font-family:inherit;font-size:.9rem;cursor:pointer">Abbrechen</button>
+    </div>
+    <div id="rus-msg" style="display:none;margin-top:.75rem;font-size:.85rem;text-align:center"></div>
+  </div>
+</div>
+<script>
+window.RootsUser = window.RootsUser || {
+  _p:null,_sb:null,_uid:null,
+  _initials(n){if(!n)return'?';return n.trim().split(/\s+/).map(w=>w[0]||'').join('').slice(0,2).toUpperCase()},
+  _avatarSpan(url,name,size){const ini=this._initials(name),s=`width:${size}px;height:${size}px;border-radius:50%;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:${Math.floor(size*.38)}px;flex-shrink:0;`;if(url)return`<span style="${s}background:var(--brand-light,#eff6ff)"><img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentElement.innerHTML='<span style=color:var(--brand,#206efb)>${ini}</span>'"></span>`;return`<span style="${s}background:var(--brand-light,#eff6ff);color:var(--brand,#206efb)">${ini}</span>`},
+  _previewAvatar(url){return this._avatarSpan(url||(this._p&&this._p.avatar_url),this._p&&this._p.full_name,64)},
+  async _loadAndMount(sb){
+    this._sb=sb;
+    const{data:{session}}=await sb.auth.getSession();
+    if(!session)return;
+    this._uid=session.user.id;
+    const{data}=await sb.schema('users').from('profiles').select('id,email,full_name,position,avatar_url,linkedin_url,app_role').eq('id',this._uid).single();
+    this._p=data||{id:this._uid,email:session.user.email,app_role:'reader'};
+    this._mount();
+  },
+  _mount(){
+    const p=this._p;
+    const avEl=document.getElementById('roots-header-avatar')||document.getElementById('user-avatar');
+    const nmEl=document.getElementById('roots-header-name')||document.getElementById('user-name-topbar');
+    if(avEl){avEl.innerHTML=this._avatarSpan(p.avatar_url,p.full_name,32);avEl.style.cursor='pointer';avEl.onclick=()=>this.openSettings();}
+    if(nmEl){nmEl.textContent=p.full_name||p.email||'';nmEl.style.cursor='pointer';nmEl.onclick=()=>this.openSettings();}
+  },
+  isAdmin(){return this._p?.app_role==='admin'},
+  isReader(){return this._p?.app_role==='reader'},
+  getProfile(){return this._p},
+  openSettings(){
+    const p=this._p||{};
+    document.getElementById('rus-name').value=p.full_name||'';
+    document.getElementById('rus-email').value=p.email||'';
+    document.getElementById('rus-position').value=p.position||'';
+    document.getElementById('rus-linkedin').value=p.linkedin_url||'';
+    document.getElementById('rus-avatar-url').value=p.avatar_url||'';
+    document.getElementById('rus-preview').innerHTML=this._avatarSpan(p.avatar_url,p.full_name,64);
+    document.getElementById('rus-msg').style.display='none';
+    document.getElementById('roots-user-settings-modal').style.display='flex';
+  },
+  closeSettings(){document.getElementById('roots-user-settings-modal').style.display='none'},
+  async saveSettings(){
+    const name=document.getElementById('rus-name').value.trim(),email=document.getElementById('rus-email').value.trim(),pos=document.getElementById('rus-position').value.trim(),li=document.getElementById('rus-linkedin').value.trim(),av=document.getElementById('rus-avatar-url').value.trim();
+    const btn=document.getElementById('rus-save'),msg=document.getElementById('rus-msg');
+    btn.disabled=true;btn.textContent='Speichern…';msg.style.display='none';
+    const{error}=await this._sb.schema('users').from('profiles').update({full_name:name,position:pos,linkedin_url:li,avatar_url:av}).eq('id',this._uid);
+    if(!error&&email&&email!==this._p.email)await this._sb.auth.updateUser({email});
+    btn.disabled=false;btn.textContent='Speichern';
+    if(error){msg.style.cssText='display:block;color:#dc2626;font-size:.85rem;text-align:center;margin-top:.5rem';msg.textContent='Fehler beim Speichern.';}
+    else{Object.assign(this._p,{full_name:name,position:pos,linkedin_url:li,avatar_url:av});if(email!==this._p.email)this._p.email=email;msg.style.cssText='display:block;color:#10b981;font-size:.85rem;text-align:center;margin-top:.5rem';msg.textContent='✓ Gespeichert!';this._mount();setTimeout(()=>this.closeSettings(),700);}
+  }
+};
 </script>
 </body>
 </html>
