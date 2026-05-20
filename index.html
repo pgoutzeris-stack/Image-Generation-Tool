@@ -44,9 +44,24 @@
     color: var(--c-text);
     font-family: 'Circular Std', -apple-system, BlinkMacSystemFont, sans-serif !important;
     margin: 0;
-    padding: 60px 20px 100px 20px; 
+    padding: 12px 20px 100px 20px;
     line-height: 1.6;
   }
+  .sop-header{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.25rem;min-height:64px;background:#fff;border:1px solid #e2e8f0;border-radius:16px;box-shadow:0 6px 20px rgba(15,23,42,.08);gap:14px;margin-bottom:1.25rem;position:relative;z-index:50}
+  @media(prefers-color-scheme:dark){.sop-header{background:#1e293b;border-color:#334155}}
+  .sop-header .header-left{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+  .sop-header .header-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+  .logo-mark{width:28px;height:28px;border-radius:7px;background:var(--brand,#206efb);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .wordmark{font-size:14px;font-weight:700;color:var(--c-text,#0f172a);white-space:nowrap}
+  .wordmark span{color:var(--brand,#206efb)}
+  .header-divider{width:1px;height:16px;background:#e2e8f0;flex-shrink:0}
+  @media(prefers-color-scheme:dark){.header-divider{background:#334155}}
+  .header-sub{font-size:12px;color:var(--c-text-muted,#64748b);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .header-sep{width:1px;height:22px;background:#e2e8f0;margin:0 4px;flex-shrink:0}
+  @media(prefers-color-scheme:dark){.header-sep{background:#334155}}
+  .btn-header-action{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;background:#fff;border:1px solid #e2e8f0;border-radius:999px;font-family:inherit;font-size:.82rem;font-weight:500;color:var(--c-text,#0f172a);cursor:pointer;transition:all .2s;white-space:nowrap}
+  .btn-header-action:hover{background:var(--brand,#206efb);color:#fff;border-color:var(--brand,#206efb)}
+  @media(prefers-color-scheme:dark){.btn-header-action{background:#1e293b;border-color:#334155;color:#f8fafc}.btn-header-action:hover{background:var(--brand,#3b82f6);border-color:var(--brand,#3b82f6)}}
 
   .header { text-align: center; margin-bottom: 50px; }
   .header h1 { font-size: 2.2rem; margin: 0 0 8px 0; color: var(--c-text); letter-spacing: -0.5px; }
@@ -409,10 +424,6 @@
 </head>
 <body>
 
-<button id="roots-logout-btn" style="position:fixed;top:12px;right:12px;z-index:9998;height:36px;padding:0 14px;font-size:.85rem;font-family:inherit;font-weight:500;display:none;align-items:center;gap:7px;background:#fff;border:1px solid #e2e8f0;color:#0f172a;border-radius:999px;cursor:pointer;transition:all .2s" title="Abmelden">
-  <i class="fa-solid fa-right-from-bracket"></i> Abmelden
-</button>
-
 <div id="roots-auth-overlay" class="roots-auth-overlay">
   <div class="roots-login-card">
     <div class="roots-logo-wrap">
@@ -499,12 +510,22 @@
   </div>
 </div>
 
-<div class="header">
-  <h1><i class="fa-solid fa-layer-group" style="color: var(--brand);"></i> Image Generation Tool</h1>
-  <p>Entwickelt von ROOTS Brand Strategy Consultants GmbH</p>
-  <div id="roots-header-avatar" style="cursor:pointer;margin-left:auto" title="Profil"></div>
-  <span id="roots-header-name" style="font-size:13px;color:var(--muted,#475569);cursor:pointer;white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis;margin:0 8px"></span>
-</div>
+<header class="sop-header">
+  <div class="header-left">
+    <div class="logo-mark"><svg viewBox="0 0 16 16" fill="none" width="16" height="16"><rect x="2" y="2" width="5" height="5" rx="1.5" fill="white" opacity="0.9"/><rect x="9" y="2" width="5" height="5" rx="1.5" fill="white" opacity="0.6"/><rect x="2" y="9" width="5" height="5" rx="1.5" fill="white" opacity="0.6"/><rect x="9" y="9" width="5" height="5" rx="1.5" fill="white" opacity="0.3"/></svg></div>
+    <span class="wordmark">ROOTS <span>IMAGE AI</span></span>
+    <div class="header-divider"></div>
+    <span class="header-sub">KI-Bildgenerierung</span>
+  </div>
+  <div class="header-right">
+    <div id="roots-header-avatar" style="cursor:pointer" title="Profil" onclick="window.RootsUser&&RootsUser.openSettings()"></div>
+    <span id="roots-header-name" style="font-size:13px;color:var(--c-text-muted,#64748b);cursor:pointer;white-space:nowrap" onclick="window.RootsUser&&RootsUser.openSettings()"></span>
+    <div class="header-sep"></div>
+    <button id="roots-logout-btn" class="btn-header-action" title="Abmelden">
+      <i class="fa-solid fa-right-from-bracket"></i> Abmelden
+    </button>
+  </div>
+</header>
 
 <div class="main-wrapper">
   
@@ -1372,13 +1393,12 @@
   const overlay=document.getElementById('roots-auth-overlay');
   const vLogin=document.getElementById('roots-view-login');
   const vForgot=document.getElementById('roots-view-forgot');
-  const logoutBtn=document.getElementById('roots-logout-btn');
   sb.auth.getSession().then(({data:{session}})=>{
-    if(session){overlay.style.display='none';logoutBtn.style.display='flex';window.RootsUser&&RootsUser._loadAndMount(sb);}
+    if(session){overlay.style.display='none';window.RootsUser&&RootsUser._loadAndMount(sb);}
   });
   sb.auth.onAuthStateChange((event,session)=>{
-    if(session){overlay.style.display='none';logoutBtn.style.display='flex';window.RootsUser&&RootsUser._loadAndMount(sb);}
-    else if(event==='SIGNED_OUT'){overlay.style.display='flex';logoutBtn.style.display='none';vLogin.style.display='block';vForgot.style.display='none';}
+    if(session){overlay.style.display='none';window.RootsUser&&RootsUser._loadAndMount(sb);}
+    else if(event==='SIGNED_OUT'){overlay.style.display='flex';vLogin.style.display='block';vForgot.style.display='none';}
   });
   document.getElementById('roots-login-form').addEventListener('submit',async(e)=>{
     e.preventDefault();
@@ -1406,8 +1426,7 @@
   });
   document.getElementById('roots-go-forgot').addEventListener('click',()=>{vLogin.style.display='none';vForgot.style.display='block';});
   document.getElementById('roots-go-login').addEventListener('click',()=>{vForgot.style.display='none';vLogin.style.display='block';});
-  logoutBtn.onclick=()=>{ sb.auth.signOut(); };
-  logoutBtn.addEventListener('click',()=>sb.auth.signOut());
+  document.getElementById('roots-logout-btn')?.addEventListener('click',()=>sb.auth.signOut());
 })();
 </script>
 <!-- ROOTS User Settings Modal -->
@@ -1418,8 +1437,10 @@
       <button onclick="window.RootsUser.closeSettings()" style="background:none;border:none;cursor:pointer;color:var(--muted,#475569);font-size:1.1rem;padding:4px"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div style="text-align:center;margin-bottom:1.25rem">
-      <div id="rus-preview" style="display:inline-block;margin-bottom:.75rem"></div>
-      <input id="rus-avatar-url" type="url" placeholder="Avatar-URL (optional)" style="width:100%;height:38px;padding:0 12px;border:1px solid var(--line,#e2e8f0);border-radius:8px;font-family:inherit;font-size:.82rem;color:var(--ink,#0f172a);background:var(--bg,#fff);outline:none;box-sizing:border-box" oninput="document.getElementById('rus-preview').innerHTML=window.RootsUser._previewAvatar(this.value)">
+      <canvas id="rus-crop-canvas" width="120" height="120" style="border-radius:50%;border:3px solid var(--brand,#206efb);cursor:grab;display:block;margin:0 auto .75rem;box-shadow:0 2px 12px rgba(32,110,251,.15)" title="Ziehen zum Verschieben · Scrollen zum Zoomen"></canvas>
+      <div id="rus-drop-zone" style="border:2px dashed var(--line,#e2e8f0);border-radius:12px;padding:.65rem 1rem;cursor:pointer;transition:border-color .2s;margin-bottom:.5rem;font-size:.8rem;color:var(--muted,#475569);text-align:center" onclick="document.getElementById('rus-file-input').click()" ondragover="event.preventDefault();this.style.borderColor='#206efb'" ondragleave="this.style.borderColor=''" ondrop="event.preventDefault();this.style.borderColor='';window.RootsUser._cropLoad(event.dataTransfer.files[0])"><i class="fa-solid fa-folder-open" style="margin-right:6px"></i>Bild auswählen oder hier ablegen</div>
+      <input type="file" id="rus-file-input" accept="image/*" style="display:none" onchange="window.RootsUser._cropLoad(this.files[0])">
+      <div id="rus-zoom-row" style="display:none;align-items:center;gap:8px;padding:0 .25rem;margin-top:.5rem"><i class="fa-solid fa-magnifying-glass-minus" style="color:var(--muted,#475569);font-size:.8rem"></i><input type="range" id="rus-zoom" min="0.5" max="4" step="0.01" value="1" style="flex:1;accent-color:#206efb"><i class="fa-solid fa-magnifying-glass-plus" style="color:var(--muted,#475569);font-size:.8rem"></i></div>
     </div>
     <div style="display:grid;gap:.85rem">
       <div><label style="display:block;font-size:.75rem;font-weight:600;color:var(--muted,#475569);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.3rem">Vollständiger Name</label><input id="rus-name" type="text" style="width:100%;height:42px;padding:0 12px;border:1px solid var(--line,#e2e8f0);border-radius:8px;font-family:inherit;font-size:.9rem;color:var(--ink,#0f172a);background:var(--bg,#fff);outline:none;box-sizing:border-box"></div>
@@ -1459,20 +1480,25 @@ window.RootsUser = window.RootsUser || {
   isAdmin(){return this._p?.app_role==='admin'},
   isReader(){return this._p?.app_role==='reader'},
   getProfile(){return this._p},
+  _cs:null,
+  _cropDraw(){const cv=document.getElementById('rus-crop-canvas');if(!cv)return;const ctx=cv.getContext('2d');ctx.clearRect(0,0,120,120);if(this._cs?.img){const{img,x,y,scale}=this._cs,cr=Math.max(120/img.naturalWidth,120/img.naturalHeight),dw=img.naturalWidth*cr*scale,dh=img.naturalHeight*cr*scale,dx=(120-dw)/2+x,dy=(120-dh)/2+y;ctx.save();ctx.beginPath();ctx.arc(60,60,60,0,Math.PI*2);ctx.clip();ctx.drawImage(img,dx,dy,dw,dh);ctx.restore();}else{ctx.beginPath();ctx.arc(60,60,60,0,Math.PI*2);ctx.fillStyle='#eff6ff';ctx.fill();ctx.fillStyle='#206efb';ctx.font='bold 30px system-ui,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(this._initials(this._p&&this._p.full_name),60,60);}},
+  _cropLoad(file){if(!file||!file.type.startsWith('image/'))return;const url=URL.createObjectURL(file),img=new Image();img.onload=()=>{this._cs={img,x:0,y:0,scale:1,dragging:false,lastX:0,lastY:0};document.getElementById('rus-zoom-row').style.display='flex';document.getElementById('rus-zoom').value=1;this._cropDraw();};img.src=url;},
+  _initCropEditor(){const cv=document.getElementById('rus-crop-canvas');if(!cv||cv._ci)return;cv._ci=true;const on=(el,ev,fn,opt)=>el.addEventListener(ev,fn,opt);on(cv,'mousedown',e=>{e.preventDefault();if(this._cs){this._cs.dragging=true;this._cs.lastX=e.clientX;this._cs.lastY=e.clientY;}cv.style.cursor='grabbing';});on(document,'mousemove',e=>{if(!this._cs?.dragging)return;this._cs.x+=e.clientX-this._cs.lastX;this._cs.y+=e.clientY-this._cs.lastY;this._cs.lastX=e.clientX;this._cs.lastY=e.clientY;this._cropDraw();});on(document,'mouseup',()=>{if(this._cs)this._cs.dragging=false;cv.style.cursor='grab';});on(cv,'wheel',e=>{e.preventDefault();if(!this._cs)return;this._cs.scale=Math.max(.5,Math.min(4,this._cs.scale+(e.deltaY<0?.1:-.1)));document.getElementById('rus-zoom').value=this._cs.scale;this._cropDraw();},{passive:false});let lt=null;on(cv,'touchstart',e=>{e.preventDefault();lt=e.touches;if(this._cs){this._cs.dragging=true;this._cs.lastX=e.touches[0].clientX;this._cs.lastY=e.touches[0].clientY;}},{passive:false});on(cv,'touchmove',e=>{e.preventDefault();if(!this._cs)return;if(e.touches.length===2&&lt&&lt.length===2){const d1=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY),d0=Math.hypot(lt[0].clientX-lt[1].clientX,lt[0].clientY-lt[1].clientY);this._cs.scale=Math.max(.5,Math.min(4,this._cs.scale*(d1/d0)));document.getElementById('rus-zoom').value=this._cs.scale;}else if(e.touches.length===1){this._cs.x+=e.touches[0].clientX-this._cs.lastX;this._cs.y+=e.touches[0].clientY-this._cs.lastY;this._cs.lastX=e.touches[0].clientX;this._cs.lastY=e.touches[0].clientY;}lt=e.touches;this._cropDraw();},{passive:false});on(cv,'touchend',()=>{if(this._cs)this._cs.dragging=false;});on(document.getElementById('rus-zoom'),'input',e=>{if(this._cs){this._cs.scale=parseFloat(e.target.value);this._cropDraw();}});},
+  _getCroppedDataURL(){if(!this._cs?.img)return this._p?.avatar_url||'';const out=document.createElement('canvas');out.width=200;out.height=200;const ctx=out.getContext('2d'),f=200/120,{img,x,y,scale}=this._cs,cr=Math.max(120/img.naturalWidth,120/img.naturalHeight),dw=img.naturalWidth*cr*scale*f,dh=img.naturalHeight*cr*scale*f,dx=(200-dw)/2+x*f,dy=(200-dh)/2+y*f;ctx.save();ctx.beginPath();ctx.arc(100,100,100,0,Math.PI*2);ctx.clip();ctx.drawImage(img,dx,dy,dw,dh);ctx.restore();return out.toDataURL('image/jpeg',.85);},
   openSettings(){
     const p=this._p||{};
     document.getElementById('rus-name').value=p.full_name||'';
     document.getElementById('rus-email').value=p.email||'';
     document.getElementById('rus-position').value=p.position||'';
     document.getElementById('rus-linkedin').value=p.linkedin_url||'';
-    document.getElementById('rus-avatar-url').value=p.avatar_url||'';
-    document.getElementById('rus-preview').innerHTML=this._avatarSpan(p.avatar_url,p.full_name,64);
     document.getElementById('rus-msg').style.display='none';
     document.getElementById('roots-user-settings-modal').style.display='flex';
+    this._cs=null;this._initCropEditor();this._cropDraw();
+    if(p.avatar_url){const _i=new Image();_i.crossOrigin='anonymous';_i.onload=()=>{this._cs={img:_i,x:0,y:0,scale:1,dragging:false,lastX:0,lastY:0};document.getElementById('rus-zoom-row').style.display='flex';this._cropDraw();};_i.onerror=()=>this._cropDraw();_i.src=p.avatar_url;}
   },
   closeSettings(){document.getElementById('roots-user-settings-modal').style.display='none'},
   async saveSettings(){
-    const name=document.getElementById('rus-name').value.trim(),email=document.getElementById('rus-email').value.trim(),pos=document.getElementById('rus-position').value.trim(),li=document.getElementById('rus-linkedin').value.trim(),av=document.getElementById('rus-avatar-url').value.trim();
+    const name=document.getElementById('rus-name').value.trim(),email=document.getElementById('rus-email').value.trim(),pos=document.getElementById('rus-position').value.trim(),li=document.getElementById('rus-linkedin').value.trim(),av=this._getCroppedDataURL();
     const btn=document.getElementById('rus-save'),msg=document.getElementById('rus-msg');
     btn.disabled=true;btn.textContent='Speichern…';msg.style.display='none';
     const{error}=await this._sb.schema('users').from('profiles').update({full_name:name,position:pos,linkedin_url:li,avatar_url:av}).eq('id',this._uid);
