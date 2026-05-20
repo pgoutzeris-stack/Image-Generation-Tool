@@ -1374,10 +1374,10 @@
   const vForgot=document.getElementById('roots-view-forgot');
   const logoutBtn=document.getElementById('roots-logout-btn');
   sb.auth.getSession().then(({data:{session}})=>{
-    if(session){overlay.remove();logoutBtn.style.display='flex';window.RootsUser&&RootsUser._loadAndMount(sb);}
+    if(session){overlay.style.display='none';logoutBtn.style.display='flex';window.RootsUser&&RootsUser._loadAndMount(sb);}
   });
   sb.auth.onAuthStateChange((event,session)=>{
-    if(session){overlay.remove();logoutBtn.style.display='flex';window.RootsUser&&RootsUser._loadAndMount(sb);}
+    if(session){overlay.style.display='none';logoutBtn.style.display='flex';window.RootsUser&&RootsUser._loadAndMount(sb);}
     else if(event==='SIGNED_OUT'){overlay.style.display='flex';logoutBtn.style.display='none';vLogin.style.display='block';vForgot.style.display='none';}
   });
   document.getElementById('roots-login-form').addEventListener('submit',async(e)=>{
