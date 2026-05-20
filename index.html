@@ -31,6 +31,9 @@
     --c-success:    #10b981;
     --shadow-soft:  var(--shadow);
     --shadow-focus: 0 0 0 4px rgba(32, 110, 251, 0.15);
+    --app-max-w:    1400px;
+    --app-side-pad: 1.5rem;
+    --app-shell-w:  min(var(--app-max-w), calc(100% - 2 * var(--app-side-pad)));
   }
 
   * { box-sizing: border-box; }
@@ -42,13 +45,14 @@
     padding: 0 0 100px;
     line-height: 1.6;
   }
-  .app-shell { max-width: 1400px; width: calc(100% - 3rem); margin: 0 auto; padding: 12px 0 0; }
+  .app-shell { width: var(--app-shell-w); max-width: var(--app-max-w); margin: 0 auto; padding: 12px 0 0; box-sizing: border-box; }
   .sop-header {
     display: flex; align-items: center; justify-content: space-between;
     padding: 0.8rem 1.5rem; min-height: 64px;
     background: var(--bg); border: 1px solid var(--line);
     border-radius: var(--radius); box-shadow: var(--shadow);
     gap: 1.5rem; margin-bottom: 1rem; position: relative; z-index: 50;
+    width: 100%; box-sizing: border-box;
   }
   .sop-header .header-left { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
   .sop-header .header-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
@@ -74,11 +78,17 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 40px;
-    max-width: 1400px;
-    margin: 0 auto;
-    width: 95%;
+    width: 100%;
+    margin: 0;
     align-items: stretch;
+    box-sizing: border-box;
   }
+
+  #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 99999; display: flex; flex-direction: column; gap: 10px; max-width: min(380px, calc(100vw - 40px)); pointer-events: none; }
+  .toast { background: var(--bg); border-left: 4px solid var(--brand); box-shadow: var(--shadow); padding: 12px 20px; border-radius: 8px; font-size: 0.9rem; color: var(--ink); animation: imgToastIn 0.3s ease; pointer-events: auto; transition: opacity 0.3s ease; }
+  .toast.error { border-color: var(--c-danger); }
+  .toast.success { border-color: var(--c-success); }
+  @keyframes imgToastIn { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
 
   .left-panel, .right-panel {
     display: flex;
@@ -709,12 +719,27 @@
 </div>
 </div>
 
+<div id="toast-container" aria-live="polite"></div>
+
 <div id="lightbox" onclick="closeLightbox()">
   <i class="fa-solid fa-xmark lightbox-close"></i>
   <img id="lightbox-img" src="" alt="Großansicht" onclick="event.stopPropagation()">
 </div>
 
 <script>
+  function toast(msg, type = 'info') {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.textContent = msg;
+    container.appendChild(el);
+    setTimeout(() => {
+      el.style.opacity = '0';
+      setTimeout(() => el.remove(), 300);
+    }, 4500);
+  }
+
   const API_KEY = "AIzaSyC1BIkHfccvJ8fUmjgNfyW6TOQDhCjCxBA";
   const MODEL_NB2 = 'gemini-3.1-flash-image-preview';
   const MODEL_NB1 = 'gemini-2.5-flash-image';
@@ -922,7 +947,7 @@
   });
 
   function handleFile(file) {
-    if (!file.type.startsWith('image/')) { alert('Bitte nur ein Bild hochladen.'); return; }
+    if (!file.type.startsWith('image/')) { toast('Bitte nur ein Bild hochladen.', 'error'); return; }
     const reader = new FileReader();
     reader.onload = (e) => {
       refImageData = e.target.result.split(',')[1];
@@ -971,7 +996,7 @@
       btn.parentElement.remove();
       updatePlaceholders();
     } else {
-      alert("Du brauchst mindestens einen Text für den Batch.");
+      toast('Du brauchst mindestens einen Text für den Batch.', 'error');
     }
   };
 
@@ -1278,7 +1303,7 @@
       if (v !== "") promptInputs.push(v);
     }
     
-    if (promptInputs.length === 0) return alert("Bitte schreibe einen Text auf!");
+    if (promptInputs.length === 0) { toast('Bitte schreibe einen Text auf!', 'error'); return; }
 
     var aspect   = document.getElementById('sel-aspect').value;
     var mimeType = document.getElementById('sel-format').value;
