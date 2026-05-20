@@ -534,10 +534,6 @@
   <div class="header-right">
     <div id="roots-header-avatar" style="cursor:pointer" title="Profil" onclick="window.RootsUser&&RootsUser.openSettings()"></div>
     <span id="roots-header-name" style="font-size:13px;color:var(--muted);cursor:pointer;white-space:nowrap" onclick="window.RootsUser&&RootsUser.openSettings()"></span>
-    <div class="header-sep"></div>
-    <button id="roots-logout-btn" class="btn-header-action" title="Abmelden">
-      <i class="fa-solid fa-right-from-bracket"></i> Abmelden
-    </button>
   </div>
 </header>
 
@@ -1455,8 +1451,7 @@
     else{okEl.classList.add('visible');btn.disabled=false;}
   });
   document.getElementById('roots-go-forgot').addEventListener('click',()=>{vLogin.style.display='none';vForgot.style.display='block';});
-  document.getElementById('roots-go-login').addEventListener('click',()=>{vForgot.style.display='none';vLogin.style.display='block';});
-  document.getElementById('roots-logout-btn')?.addEventListener('click',()=>sb.auth.signOut());
+  document.getElementById('roots-go-login').addEventListener('click',()=>{vForgot.style.display='none';vLogin.style.display='block';resetLoginUi();});
 })();
 </script>
 <!-- ROOTS User Settings Modal -->
