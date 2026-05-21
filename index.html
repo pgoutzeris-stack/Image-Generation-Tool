@@ -1492,8 +1492,8 @@
       <button onclick="window.RootsUser.closeSettings()" style="background:none;border:none;cursor:pointer;color:var(--muted,#475569);font-size:1.1rem;padding:4px"><i class="fa-solid fa-xmark"></i></button>
     </div>
 <div style="margin-bottom:1.25rem">
-  <div id="rus-av-wrap" style="position:relative;width:120px;height:120px;border-radius:50%;margin:0 auto;cursor:pointer;user-select:none">
-    <canvas id="rus-crop-canvas" width="120" height="120" style="border-radius:50%;border:3px solid #206efb;display:block;box-shadow:0 2px 12px rgba(32,110,251,.15);cursor:grab;touch-action:none"></canvas>
+  <div id="rus-av-wrap" style="position:relative;width:120px;height:120px;border-radius:50%;margin:0 auto;cursor:pointer;user-select:none;box-shadow:0 0 0 3px #206efb,0 2px 12px rgba(32,110,251,.18)">
+    <canvas id="rus-crop-canvas" width="120" height="120" style="border-radius:50%;display:block;cursor:grab;touch-action:none"></canvas>
     <div id="rus-av-pencil" style="position:absolute;inset:0;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0;transition:opacity .2s;pointer-events:none">
       <i class="fa-solid fa-camera" style="font-size:1.3rem"></i>
       <span style="font-size:.65rem;margin-top:.2rem;font-weight:600;letter-spacing:.03em">Ändern</span>
@@ -1684,14 +1684,32 @@ window.RootsUser = window.RootsUser || {
   },
   closeSettings(){document.getElementById('roots-user-settings-modal').style.display='none'},
   async saveSettings(){
-    const name=document.getElementById('rus-name').value.trim(),email=document.getElementById('rus-email').value.trim(),pos=document.getElementById('rus-position').value.trim(),li=document.getElementById('rus-linkedin').value.trim(),av=this._getCroppedDataURL();
-    const btn=document.getElementById('rus-save'),msg=document.getElementById('rus-msg');
-    btn.disabled=true;btn.textContent='Speichern…';msg.style.display='none';
-    const{error}=await this._sb.schema('users').from('profiles').update({full_name:name,position:pos,linkedin_url:li,avatar_url:av}).eq('id',this._uid);
-    if(!error&&email&&email!==this._p.email)await this._sb.auth.updateUser({email});
-    btn.disabled=false;btn.textContent='Speichern';
-    if(error){msg.style.cssText='display:block;color:#dc2626;font-size:.85rem;text-align:center;margin-top:.5rem';msg.textContent='Fehler beim Speichern.';}
-    else{Object.assign(this._p,{full_name:name,position:pos,linkedin_url:li,avatar_url:av});if(email!==this._p.email)this._p.email=email;msg.style.cssText='display:block;color:#10b981;font-size:.85rem;text-align:center;margin-top:.5rem';msg.textContent='✓ Gespeichert!';this._mount();setTimeout(()=>this.closeSettings(),700);}
+    const btn=document.getElementById('rus-save');
+    const msg=document.getElementById('rus-msg');
+    const showMsg=(text,ok)=>{if(!msg)return;msg.style.cssText='display:block;font-size:.85rem;text-align:center;margin-top:.5rem;padding:.5rem;border-radius:8px;background:'+(ok?'#ecfdf5':'#fef2f2')+';color:'+(ok?'#10b981':'#dc2626');msg.textContent=text;};
+    if(!this._sb||!this._uid){showMsg('Nicht angemeldet — bitte neu einloggen',false);return;}
+    const orig=btn?btn.innerHTML:'';
+    if(btn){btn.disabled=true;btn.innerHTML='<i class="fa-solid fa-circle-notch fa-spin"></i> Speichern…';}
+    if(msg)msg.style.display='none';
+    try{
+      const name=document.getElementById('rus-name')?.value.trim()||'';
+      const email=document.getElementById('rus-email')?.value.trim()||'';
+      const pos=document.getElementById('rus-position')?.value||'';
+      const li=document.getElementById('rus-linkedin')?.value.trim()||'';
+      const av=this._getCroppedDataURL();
+      const payload={full_name:name,position:pos,linkedin_url:li||null,avatar_url:av};
+      const{error}=await this._sb.schema('users').from('profiles').update(payload).eq('id',this._uid);
+      if(error)throw error;
+      if(email&&email!==this._p.email)await this._sb.auth.updateUser({email});
+      if(this._p){Object.assign(this._p,payload);if(email&&email!==this._p.email)this._p.email=email;}
+      this._mount();
+      showMsg('✓ Erfolgreich gespeichert',true);
+      setTimeout(()=>this.closeSettings&&this.closeSettings(),900);
+    }catch(e){
+      showMsg('✗ '+(e.message||'Fehler beim Speichern'),false);
+    }finally{
+      if(btn){btn.disabled=false;btn.innerHTML=orig||'<i class="fa-solid fa-floppy-disk"></i> Speichern';}
+    }
   }
 };
 </script>
