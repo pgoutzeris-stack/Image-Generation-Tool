@@ -445,6 +445,7 @@
   }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://pgoutzeris-stack.github.io/ROOTS_Intranet/roots-user-bridge.js"></script>
 </head>
 <body>
 
@@ -1427,6 +1428,7 @@
   const SB_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNzbWd1d2N2enJlZWZsdWhhaHl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5NjM0ODcsImV4cCI6MjA5MjUzOTQ4N30.Fiafx7XBaQZXUX3bKQIBH7znBHx3B51yL-bftOHsL4Q';
   const {createClient}=window.supabase;
   const sb=createClient(SB_URL,SB_ANON);
+  window.__rootsSupabaseClient=sb;
   const overlay=document.getElementById('roots-auth-overlay');
   const vLogin=document.getElementById('roots-view-login');
   const vForgot=document.getElementById('roots-view-forgot');
