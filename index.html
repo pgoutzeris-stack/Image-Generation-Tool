@@ -1491,14 +1491,24 @@
       <h2 style="font-size:1.1rem;font-weight:700;color:var(--ink,#0f172a);margin:0">Mein Profil</h2>
       <button onclick="window.RootsUser.closeSettings()" style="background:none;border:none;cursor:pointer;color:var(--muted,#475569);font-size:1.1rem;padding:4px"><i class="fa-solid fa-xmark"></i></button>
     </div>
-    <div style="text-align:center;margin-bottom:1.25rem">
-      <div id="rus-av-wrap" style="position:relative;width:120px;height:120px;border-radius:50%;margin:0 auto .75rem;cursor:pointer">
-  <canvas id="rus-crop-canvas" width="120" height="120" style="border-radius:50%;border:3px solid #206efb;cursor:grab;display:block;box-shadow:0 2px 12px rgba(32,110,251,.15)" title="Ziehen zum Verschieben · Scrollen zum Zoomen"></canvas>
-  <div id="rus-av-pencil" style="position:absolute;inset:0;border-radius:50%;background:rgba(0,0,0,.45);color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.2rem;opacity:0;transition:opacity .2s;pointer-events:none"><i class="fa-solid fa-pen"></i></div>
-</div>
-      <input type="file" id="rus-file-input" accept="image/*" style="display:none" onchange="window.RootsUser._cropLoad(this.files[0])">
-      <div id="rus-zoom-row" style="display:none;align-items:center;gap:8px;padding:0 .25rem;margin-top:.5rem"><i class="fa-solid fa-magnifying-glass-minus" style="color:var(--muted,#475569);font-size:.8rem"></i><input type="range" id="rus-zoom" min="0.5" max="4" step="0.01" value="1" style="flex:1;accent-color:#206efb"><i class="fa-solid fa-magnifying-glass-plus" style="color:var(--muted,#475569);font-size:.8rem"></i></div>
+<div style="margin-bottom:1.25rem">
+  <div id="rus-av-wrap" style="position:relative;width:120px;height:120px;border-radius:50%;margin:0 auto;cursor:pointer;user-select:none">
+    <canvas id="rus-crop-canvas" width="120" height="120" style="border-radius:50%;border:3px solid #206efb;display:block;box-shadow:0 2px 12px rgba(32,110,251,.15);cursor:grab;touch-action:none"></canvas>
+    <div id="rus-av-pencil" style="position:absolute;inset:0;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0;transition:opacity .2s;pointer-events:none">
+      <i class="fa-solid fa-camera" style="font-size:1.3rem"></i>
+      <span style="font-size:.65rem;margin-top:.2rem;font-weight:600;letter-spacing:.03em">Ändern</span>
     </div>
+  </div>
+  <input type="file" id="rus-file-input" accept="image/*" hidden />
+  <div id="rus-zoom-controls" style="display:flex;align-items:center;gap:.55rem;margin:.85rem auto 0;max-width:260px">
+    <i class="fa-solid fa-magnifying-glass-minus" style="color:#94a3b8;font-size:.75rem"></i>
+    <input type="range" id="rus-zoom-slider" min="1" max="4" step="0.01" value="1" disabled style="flex:1;accent-color:#206efb">
+    <i class="fa-solid fa-magnifying-glass-plus" style="color:#94a3b8;font-size:.75rem"></i>
+    <button type="button" id="rus-reset-zoom" disabled title="Zurücksetzen" style="background:none;border:none;color:#94a3b8;cursor:pointer;padding:2px 4px;display:inline-flex;align-items:center">
+      <i class="fa-solid fa-rotate-left" style="font-size:.78rem"></i>
+    </button>
+  </div>
+</div>
     <div style="display:grid;gap:.85rem">
       <div><label style="display:block;font-size:.75rem;font-weight:600;color:var(--muted,#475569);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.3rem">Vollständiger Name</label><input id="rus-name" type="text" style="width:100%;height:42px;padding:0 12px;border:1px solid var(--line,#e2e8f0);border-radius:8px;font-family:inherit;font-size:.9rem;color:var(--ink,#0f172a);background:var(--bg,#fff);outline:none;box-sizing:border-box"></div>
       <div><label style="display:block;font-size:.75rem;font-weight:600;color:var(--muted,#475569);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.3rem">E-Mail</label><input id="rus-email" type="email" style="width:100%;height:42px;padding:0 12px;border:1px solid var(--line,#e2e8f0);border-radius:8px;font-family:inherit;font-size:.9rem;color:var(--ink,#0f172a);background:var(--bg,#fff);outline:none;box-sizing:border-box"><p style="font-size:.72rem;color:var(--muted,#475569);margin:.25rem 0 0">Änderung erfordert E-Mail-Bestätigung.</p></div>
@@ -1538,10 +1548,123 @@ window.RootsUser = window.RootsUser || {
   isReader(){return this._p?.app_role==='reader'},
   getProfile(){return this._p},
   _cs:null,
-  _cropDraw(){const cv=document.getElementById('rus-crop-canvas');if(!cv)return;const ctx=cv.getContext('2d');ctx.clearRect(0,0,120,120);if(this._cs?.img){const{img,x,y,scale}=this._cs,cr=Math.max(120/img.naturalWidth,120/img.naturalHeight),dw=img.naturalWidth*cr*scale,dh=img.naturalHeight*cr*scale,dx=(120-dw)/2+x,dy=(120-dh)/2+y;ctx.save();ctx.beginPath();ctx.arc(60,60,60,0,Math.PI*2);ctx.clip();ctx.drawImage(img,dx,dy,dw,dh);ctx.restore();}else{ctx.beginPath();ctx.arc(60,60,60,0,Math.PI*2);ctx.fillStyle='#eff6ff';ctx.fill();ctx.fillStyle='#206efb';ctx.font='bold 30px system-ui,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(this._initials(this._p&&this._p.full_name),60,60);}},
-  _cropLoad(file){if(!file||!file.type.startsWith('image/'))return;const url=URL.createObjectURL(file),img=new Image();img.onload=()=>{this._cs={img,x:0,y:0,scale:1,dragging:false,lastX:0,lastY:0};document.getElementById('rus-zoom-row').style.display='flex';document.getElementById('rus-zoom').value=1;this._cropDraw();};img.src=url;},
-  _initCropEditor(){const cv=document.getElementById('rus-crop-canvas');if(!cv||cv._ci)return;cv._ci=true;const on=(el,ev,fn,opt)=>el.addEventListener(ev,fn,opt);on(cv,'mousedown',e=>{e.preventDefault();if(this._cs){this._cs.dragging=true;this._cs.lastX=e.clientX;this._cs.lastY=e.clientY;}cv.style.cursor='grabbing';});on(document,'mousemove',e=>{if(!this._cs?.dragging)return;this._cs.x+=e.clientX-this._cs.lastX;this._cs.y+=e.clientY-this._cs.lastY;this._cs.lastX=e.clientX;this._cs.lastY=e.clientY;this._cropDraw();});on(document,'mouseup',()=>{if(this._cs)this._cs.dragging=false;cv.style.cursor='grab';});on(cv,'wheel',e=>{e.preventDefault();if(!this._cs)return;this._cs.scale=Math.max(.5,Math.min(4,this._cs.scale+(e.deltaY<0?.1:-.1)));document.getElementById('rus-zoom').value=this._cs.scale;this._cropDraw();},{passive:false});let lt=null;on(cv,'touchstart',e=>{e.preventDefault();lt=e.touches;if(this._cs){this._cs.dragging=true;this._cs.lastX=e.touches[0].clientX;this._cs.lastY=e.touches[0].clientY;}},{passive:false});on(cv,'touchmove',e=>{e.preventDefault();if(!this._cs)return;if(e.touches.length===2&&lt&&lt.length===2){const d1=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY),d0=Math.hypot(lt[0].clientX-lt[1].clientX,lt[0].clientY-lt[1].clientY);this._cs.scale=Math.max(.5,Math.min(4,this._cs.scale*(d1/d0)));document.getElementById('rus-zoom').value=this._cs.scale;}else if(e.touches.length===1){this._cs.x+=e.touches[0].clientX-this._cs.lastX;this._cs.y+=e.touches[0].clientY-this._cs.lastY;this._cs.lastX=e.touches[0].clientX;this._cs.lastY=e.touches[0].clientY;}lt=e.touches;this._cropDraw();},{passive:false});on(cv,'touchend',()=>{if(this._cs)this._cs.dragging=false;});on(document.getElementById('rus-zoom'),'input',e=>{if(this._cs){this._cs.scale=parseFloat(e.target.value);this._cropDraw();}});const _wrap=document.getElementById('rus-av-wrap');const _pen=document.getElementById('rus-av-pencil');const _fi=document.getElementById('rus-file-input');if(_wrap&&_pen){_wrap.addEventListener('mouseenter',()=>_pen.style.opacity='1');_wrap.addEventListener('mouseleave',()=>_pen.style.opacity='0');}_wrap&&_fi&&_wrap.addEventListener('click',()=>_fi.click());},
-  _getCroppedDataURL(){if(!this._cs?.img)return this._p?.avatar_url||'';const out=document.createElement('canvas');out.width=200;out.height=200;const ctx=out.getContext('2d'),f=200/120,{img,x,y,scale}=this._cs,cr=Math.max(120/img.naturalWidth,120/img.naturalHeight),dw=img.naturalWidth*cr*scale*f,dh=img.naturalHeight*cr*scale*f,dx=(200-dw)/2+x*f,dy=(200-dh)/2+y*f;ctx.save();ctx.beginPath();ctx.arc(100,100,100,0,Math.PI*2);ctx.clip();ctx.drawImage(img,dx,dy,dw,dh);ctx.restore();return out.toDataURL('image/jpeg',.85);},
+  _cropDraw(){
+    const c=document.getElementById('rus-crop-canvas');if(!c)return;
+    const cx=c.getContext('2d');cx.clearRect(0,0,120,120);
+    if(!this._cs||!this._cs.img){
+      cx.beginPath();cx.arc(60,60,60,0,Math.PI*2);
+      cx.fillStyle='#eff6ff';cx.fill();
+      cx.fillStyle='#206efb';cx.font='bold 32px "Circular Std",system-ui,sans-serif';
+      cx.textAlign='center';cx.textBaseline='middle';
+      cx.fillText(this._initials(this._p&&this._p.full_name),60,60);
+      return;
+    }
+    const{img,scale,x,y,baseScale}=this._cs;
+    const eff=baseScale*scale,dw=img.naturalWidth*eff,dh=img.naturalHeight*eff;
+    const dx=(120-dw)/2+x,dy=(120-dh)/2+y;
+    cx.save();cx.beginPath();cx.arc(60,60,60,0,Math.PI*2);cx.clip();
+    cx.drawImage(img,dx,dy,dw,dh);cx.restore();
+  },
+  _cropLoad(file){
+    if(!file||!file.type.startsWith('image/'))return;
+    const r=new FileReader();r.onload=()=>this._setImageSrc(r.result);r.readAsDataURL(file);
+  },
+  _setImageSrc(src){
+    const img=new Image();
+    img.onload=()=>{
+      const baseScale=Math.max(120/img.naturalWidth,120/img.naturalHeight);
+      this._cs={img,baseScale,scale:1,x:0,y:0,dragging:false,lastX:0,lastY:0};
+      const sl=document.getElementById('rus-zoom-slider');
+      const rb=document.getElementById('rus-reset-zoom');
+      if(sl){sl.disabled=false;sl.value='1';}
+      if(rb)rb.disabled=false;
+      this._cropDraw();
+    };
+    img.onerror=()=>{this._cs=null;this._cropDraw();};
+    img.src=src;
+  },
+  _initCropEditor(){
+    if(this._editorReady)return;this._editorReady=true;
+    const c=document.getElementById('rus-crop-canvas');
+    const wrap=document.getElementById('rus-av-wrap');
+    const pen=document.getElementById('rus-av-pencil');
+    const fi=document.getElementById('rus-file-input');
+    const sl=document.getElementById('rus-zoom-slider');
+    const rb=document.getElementById('rus-reset-zoom');
+    if(!c||!wrap||!fi)return;
+    let dragged=false;
+    wrap.addEventListener('mouseenter',()=>{if(pen)pen.style.opacity='1';});
+    wrap.addEventListener('mouseleave',()=>{if(pen)pen.style.opacity='0';});
+    wrap.addEventListener('click',e=>{
+      if(dragged){dragged=false;return;}
+      if(rb&&(e.target===rb||rb.contains(e.target)))return;
+      if(sl&&e.target===sl)return;
+      fi.click();
+    });
+    fi.addEventListener('change',()=>{
+      if(fi.files&&fi.files[0])this._cropLoad(fi.files[0]);
+      fi.value='';
+    });
+    c.addEventListener('mousedown',e=>{
+      if(!this._cs||!this._cs.img)return;
+      e.preventDefault();
+      this._cs.dragging=true;this._cs.lastX=e.clientX;this._cs.lastY=e.clientY;
+      dragged=false;c.style.cursor='grabbing';
+    });
+    document.addEventListener('mousemove',e=>{
+      if(!this._cs||!this._cs.dragging)return;
+      const dx=e.clientX-this._cs.lastX,dy=e.clientY-this._cs.lastY;
+      if(Math.abs(dx)>2||Math.abs(dy)>2)dragged=true;
+      this._cs.x+=dx;this._cs.y+=dy;
+      this._cs.lastX=e.clientX;this._cs.lastY=e.clientY;
+      this._cropDraw();
+    });
+    document.addEventListener('mouseup',()=>{
+      if(this._cs&&this._cs.dragging){this._cs.dragging=false;c.style.cursor='grab';}
+    });
+    c.addEventListener('touchstart',e=>{
+      if(!this._cs||!this._cs.img)return;
+      e.preventDefault();
+      this._cs.dragging=true;
+      this._cs.lastX=e.touches[0].clientX;this._cs.lastY=e.touches[0].clientY;
+      dragged=false;
+    },{passive:false});
+    c.addEventListener('touchmove',e=>{
+      if(!this._cs||!this._cs.dragging)return;
+      e.preventDefault();
+      const t=e.touches[0];
+      const dx=t.clientX-this._cs.lastX,dy=t.clientY-this._cs.lastY;
+      if(Math.abs(dx)>2||Math.abs(dy)>2)dragged=true;
+      this._cs.x+=dx;this._cs.y+=dy;
+      this._cs.lastX=t.clientX;this._cs.lastY=t.clientY;
+      this._cropDraw();
+    },{passive:false});
+    c.addEventListener('touchend',()=>{if(this._cs)this._cs.dragging=false;});
+    c.addEventListener('wheel',e=>{
+      if(!this._cs||!this._cs.img)return;
+      e.preventDefault();
+      this._cs.scale=Math.max(1,Math.min(4,this._cs.scale-e.deltaY*.0015));
+      if(sl)sl.value=this._cs.scale;
+      this._cropDraw();
+    },{passive:false});
+    if(sl)sl.addEventListener('input',()=>{
+      if(!this._cs||!this._cs.img)return;
+      this._cs.scale=parseFloat(sl.value);this._cropDraw();
+    });
+    if(rb)rb.addEventListener('click',e=>{
+      e.stopPropagation();
+      if(!this._cs||!this._cs.img)return;
+      this._cs.scale=1;this._cs.x=0;this._cs.y=0;
+      if(sl)sl.value='1';
+      this._cropDraw();
+    });
+  },
+  _getCroppedDataURL(){
+    const out=document.createElement('canvas');out.width=240;out.height=240;
+    const cx=out.getContext('2d');const src=document.getElementById('rus-crop-canvas');
+    if(src){cx.beginPath();cx.arc(120,120,120,0,Math.PI*2);cx.clip();cx.drawImage(src,0,0,120,120,0,0,240,240);}
+    return out.toDataURL('image/jpeg',0.88);
+  },
   openSettings(){
     const p=this._p||{};
     document.getElementById('rus-name').value=p.full_name||'';
@@ -1550,8 +1673,14 @@ window.RootsUser = window.RootsUser || {
     document.getElementById('rus-linkedin').value=p.linkedin_url||'';
     document.getElementById('rus-msg').style.display='none';
     document.getElementById('roots-user-settings-modal').style.display='flex';
-    this._cs=null;this._initCropEditor();this._cropDraw();
-    if(p.avatar_url){const _i=new Image();_i.onload=()=>{this._cs={img:_i,x:0,y:0,scale:1,dragging:false,lastX:0,lastY:0};document.getElementById('rus-zoom-row').style.display='flex';this._cropDraw();};_i.onerror=()=>this._cropDraw();_i.src=p.avatar_url;}
+    this._cs=null;
+    const _sl=document.getElementById('rus-zoom-slider');
+    const _rb=document.getElementById('rus-reset-zoom');
+    if(_sl){_sl.disabled=true;_sl.value='1';}
+    if(_rb)_rb.disabled=true;
+    this._initCropEditor();
+    this._cropDraw();
+    if(p.avatar_url)this._setImageSrc(p.avatar_url);
   },
   closeSettings(){document.getElementById('roots-user-settings-modal').style.display='none'},
   async saveSettings(){
