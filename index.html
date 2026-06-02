@@ -336,10 +336,35 @@
     background: var(--c-card); border-radius: 20px; padding: 30px;
     width: 90%; max-width: 500px; box-shadow: var(--shadow-modal);
   }
+  .modal-content.modal-settings { max-width: 560px; }
   .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
   .modal-header h3 { margin: 0; font-size: 1.2rem; color: var(--c-text); }
   .close-modal { font-size: 1.5rem; cursor: pointer; color: var(--c-text-muted); transition: color 0.2s; }
   .close-modal:hover { color: var(--c-danger); }
+  .settings-section { display: grid; gap: 14px; }
+  .settings-hint { color: var(--muted); font-size: .86rem; line-height: 1.45; margin: 0; }
+  .settings-status {
+    display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+    border: 1px solid var(--line); border-radius: 12px; background: var(--surface);
+    color: var(--muted); font-size: .9rem; font-weight: 600;
+  }
+  .settings-status.ok { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
+  .settings-status.warn { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+  .settings-input {
+    width: 100%; height: 46px; padding: 0 14px; border: 1.5px solid var(--line);
+    border-radius: 12px; font-family: inherit; font-size: .95rem; color: var(--ink);
+    background: #fff; outline: none; transition: all .2s;
+  }
+  .settings-input:focus { border-color: var(--brand); box-shadow: var(--shadow-focus); }
+  .settings-actions { display: flex; gap: 10px; margin-top: 22px; }
+  .settings-actions .btn-primary { width: auto; flex: 1; }
+  .btn-secondary {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    height: 44px; padding: 0 18px; border: 1px solid var(--line); border-radius: 999px;
+    background: #fff; color: var(--ink); font-family: inherit; font-weight: 600;
+    cursor: pointer; transition: all .2s;
+  }
+  .btn-secondary:hover { border-color: var(--brand); color: var(--brand); background: var(--brand-light); }
 
   .drop-zone {
     border: 2px dashed var(--line); border-radius: 12px; padding: 35px 20px; text-align: center;
@@ -535,6 +560,34 @@
   </div>
 </div>
 
+<div id="modal-image-ai-settings" class="modal-overlay">
+  <div class="modal-content modal-settings">
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-shield-halved" style="color:var(--brand);margin-right:8px"></i> Admin KI-Einstellungen</h3>
+      <i class="fa-solid fa-xmark close-modal" onclick="closeImageAiSettings()" title="Schließen"></i>
+    </div>
+    <div class="settings-section">
+      <div id="img-key-status" class="settings-status warn">
+        <i class="fa-solid fa-circle-info"></i>
+        <span>Status wird geladen...</span>
+      </div>
+      <p class="settings-hint">
+        Der Google API-Key wird in Supabase Vault verschlüsselt gespeichert. Er wird nie im Browser angezeigt und die Bildgenerierung läuft über eine geschützte Supabase Edge Function.
+      </p>
+      <div>
+        <label for="img-google-key">Google / Gemini API-Key</label>
+        <input id="img-google-key" class="settings-input" type="password" placeholder="AIza..." autocomplete="off">
+      </div>
+    </div>
+    <div class="settings-actions">
+      <button class="btn-secondary" onclick="closeImageAiSettings()">Abbrechen</button>
+      <button id="btn-save-img-key" class="btn-primary" onclick="saveImageAiSettings()">
+        <i class="fa-solid fa-vault"></i> Sicher speichern
+      </button>
+    </div>
+  </div>
+</div>
+
 <div class="app-shell">
 <header class="sop-header">
   <div class="header-left">
@@ -544,6 +597,9 @@
     <span class="header-sub">KI-Bildgenerierung</span>
   </div>
   <div class="header-right">
+    <button id="btn-image-ai-settings" class="btn-header-action" style="display:none" onclick="openImageAiSettings()">
+      <i class="fa-solid fa-key"></i> Admin KI
+    </button>
     <div id="roots-sync-status" class="roots-sync-wrap" aria-live="polite"></div>
   </div>
 </header>
@@ -747,7 +803,7 @@
     }, 4500);
   }
 
-  const API_KEY = "AIzaSyC1BIkHfccvJ8fUmjgNfyW6TOQDhCjCxBA";
+  const IMAGE_FUNCTION_URL = 'https://csmguwcvzreefluhahyu.supabase.co/functions/v1/image-generation';
   const MODEL_NB2 = 'gemini-3.1-flash-image-preview';
   const MODEL_NB1 = 'gemini-2.5-flash-image';
   const RETRYABLE_KEYWORDS = [
@@ -1133,34 +1189,113 @@
     return RETRYABLE_KEYWORDS.some(kw => msg.includes(kw));
   }
 
-  function apiUrl(modelId) {
-    return `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${API_KEY}`;
+  async function getImageFunctionToken() {
+    const sb = window.__rootsSupabaseClient;
+    if (!sb) throw new Error('Supabase ist noch nicht initialisiert.');
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session?.access_token) throw new Error('Nicht angemeldet oder Session abgelaufen.');
+    return session.access_token;
   }
 
-  async function callImageApi(modelId, promptText, aspect) {
-    const modalities = ["IMAGE"];
-    let partsArray = [{ text: promptText }];
-    if (refImageData && refImageMimeType) {
-      partsArray.push({ inlineData: { data: refImageData, mimeType: refImageMimeType } });
-    }
-    
+  async function callImageFunction(action, payload = {}) {
+    const token = await getImageFunctionToken();
     const requestOptions = {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: partsArray }],
-        generationConfig: { responseModalities: modalities, imageConfig: { aspectRatio: aspect } }
-      })
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ action, ...payload })
     };
 
-    if (activeAbortController) {
+    if (action === 'generate_image' && activeAbortController) {
       requestOptions.signal = activeAbortController.signal;
     }
 
-    const response = await fetch(apiUrl(modelId), requestOptions);
-    const data = await response.json();
+    const response = await fetch(IMAGE_FUNCTION_URL, requestOptions);
+    const data = await response.json().catch(() => ({ error: { message: 'Ungültige Server-Antwort.' } }));
+    if (!response.ok && action !== 'generate_image') {
+      throw new Error(data?.error?.message || 'Supabase Function Fehler.');
+    }
     return { response, data };
   }
+
+  async function callImageApi(modelId, promptText, aspect) {
+    return callImageFunction('generate_image', {
+      modelId,
+      promptText,
+      aspect,
+      refImageData,
+      refImageMimeType
+    });
+  }
+
+  async function refreshImageAiSettingsStatus() {
+    const statusEl = document.getElementById('img-key-status');
+    if (!statusEl) return;
+    statusEl.className = 'settings-status warn';
+    statusEl.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i><span>Status wird geladen...</span>';
+    try {
+      const { data } = await callImageFunction('settings_status');
+      if (data?.configured) {
+        statusEl.className = 'settings-status ok';
+        statusEl.innerHTML = '<i class="fa-solid fa-circle-check"></i><span>Google API-Key ist in Supabase Vault hinterlegt.</span>';
+      } else {
+        statusEl.className = 'settings-status warn';
+        statusEl.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i><span>Noch kein Google API-Key in Vault gespeichert.</span>';
+      }
+    } catch (error) {
+      statusEl.className = 'settings-status warn';
+      statusEl.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i><span>' + (error.message || 'Status konnte nicht geladen werden.') + '</span>';
+    }
+  }
+
+  window.openImageAiSettings = async function() {
+    if (!window.RootsUser?.isAdmin?.()) {
+      toast('Nur Admins können KI-Einstellungen ändern.', 'error');
+      return;
+    }
+    const modal = document.getElementById('modal-image-ai-settings');
+    const input = document.getElementById('img-google-key');
+    if (input) input.value = '';
+    if (modal) modal.style.display = 'flex';
+    await refreshImageAiSettingsStatus();
+  };
+
+  window.closeImageAiSettings = function() {
+    const modal = document.getElementById('modal-image-ai-settings');
+    if (modal) modal.style.display = 'none';
+  };
+
+  window.saveImageAiSettings = async function() {
+    const input = document.getElementById('img-google-key');
+    const btn = document.getElementById('btn-save-img-key');
+    const apiKey = input?.value?.trim() || '';
+    if (!apiKey) {
+      toast('Bitte Google API-Key eintragen.', 'error');
+      return;
+    }
+
+    const original = btn?.innerHTML || '';
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Speichere...';
+    }
+
+    try {
+      await callImageFunction('save_google_api_key', { apiKey });
+      if (input) input.value = '';
+      await refreshImageAiSettingsStatus();
+      toast('Google API-Key sicher in Supabase Vault gespeichert.', 'success');
+    } catch (error) {
+      toast(error.message || 'Key konnte nicht gespeichert werden.', 'error');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = original || '<i class="fa-solid fa-vault"></i> Sicher speichern';
+      }
+    }
+  };
 
   async function generateWithRetry(promptText, idx, total, mimeType, modelMode, aspect) {
     var models;
@@ -1544,6 +1679,8 @@ window.RootsUser = window.RootsUser || {
     const nmEl=document.getElementById('roots-header-name')||document.getElementById('user-name-topbar');
     if(avEl){avEl.innerHTML=this._avatarSpan(p.avatar_url,p.full_name,34);avEl.style.cursor='pointer';avEl.onclick=()=>this.openSettings();}
     if(nmEl){nmEl.textContent=p.full_name||p.email||'';nmEl.style.cursor='pointer';nmEl.onclick=()=>this.openSettings();}
+    const aiSettingsBtn=document.getElementById('btn-image-ai-settings');
+    if(aiSettingsBtn)aiSettingsBtn.style.display=this.isAdmin()?'inline-flex':'none';
   },
   isAdmin(){return this._p?.app_role==='admin'},
   isReader(){return this._p?.app_role==='reader'},
