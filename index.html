@@ -704,20 +704,27 @@
 <div id="modal-image-ai-settings" class="modal-overlay">
   <div class="modal-content modal-settings">
     <div class="modal-header">
-      <h3><i class="fa-solid fa-shield-halved" style="color:var(--brand);margin-right:8px"></i> Admin KI-Einstellungen</h3>
+      <h3 class="modal-title"><i class="fa-solid fa-gear" style="color:var(--brand);margin-right:.5rem"></i>KI-Einstellungen</h3>
       <i class="fa-solid fa-xmark close-modal" onclick="closeImageAiSettings()" title="Schließen"></i>
     </div>
     <div class="settings-section">
-      <div id="img-key-status" class="settings-status warn">
-        <i class="fa-solid fa-circle-info"></i>
-        <span>Status wird geladen...</span>
+      <!-- Status-Anzeige -->
+      <div id="img-key-status" class="settings-status warn" style="display:flex;align-items:center;gap:.5rem;padding:.6rem .9rem;border-radius:8px;font-size:.8rem;margin-bottom:.75rem">
+        <i class="fa-solid fa-circle-notch fa-spin"></i>
+        <span>Status wird geladen…</span>
       </div>
-      <p class="settings-hint">
-        Der Google API-Key wird in Supabase Vault verschlüsselt gespeichert. Er wird nie im Browser angezeigt und die Bildgenerierung läuft über eine geschützte Supabase Edge Function.
-      </p>
-      <div>
-        <label for="img-google-key">Google / Gemini API-Key</label>
-        <input id="img-google-key" class="settings-input" type="password" placeholder="AIza..." autocomplete="off">
+      <!-- API-Key Gruppe wie WissensHub -->
+      <div class="api-key-group">
+        <div class="api-key-label">
+          <span class="api-key-badge badge-google" style="background:#4285f4">Google</span>
+          Google / Gemini API-Key
+        </div>
+        <div class="api-key-input-wrap">
+          <input id="img-google-key" class="api-key-input" type="password" placeholder="AIza…" autocomplete="off">
+        </div>
+        <p class="settings-hint" style="margin-top:.4rem">
+          Der Key wird verschlüsselt in Supabase Vault gespeichert und nie im Browser angezeigt.
+        </p>
       </div>
     </div>
     <div class="settings-actions">
@@ -754,17 +761,11 @@
       </button>
     </nav>
 
-    <!-- Einstellungen (nur für Admins) -->
-    <div class="sidebar-settings" id="sidebar-settings-area">
-      <span class="sidebar-settings-label"><i class="fa-solid fa-gear" style="margin-right:5px"></i>Einstellungen</span>
-      <div id="sidebar-api-status" class="sidebar-api-status">
-        <i class="fa-solid fa-circle-notch fa-spin"></i>
-        <span>Status wird geladen…</span>
-      </div>
-      <label style="font-size:.78rem;font-weight:600;color:var(--muted);margin:4px 0 2px">Google / Gemini API-Key</label>
-      <input id="sidebar-google-key" class="sidebar-api-input" type="password" placeholder="AIza…" autocomplete="off">
-      <button id="sidebar-save-key-btn" class="sidebar-api-btn" onclick="saveSidebarApiKey()">
-        <i class="fa-solid fa-vault"></i> Sicher speichern
+    <!-- KI-Einstellungen (nur für Admins) — wie WissensHub -->
+    <div id="sidebar-settings-area" style="margin-top:auto;padding-top:.75rem;border-top:1px solid var(--line);display:none">
+      <button class="dash-nav-item" onclick="openImageAiSettings()" style="color:var(--muted)">
+        <i class="fa-solid fa-gear"></i>
+        KI-Einstellungen
       </button>
     </div>
   </aside>
@@ -977,6 +978,12 @@
 
   function closeDropzoneModal() {
     document.getElementById('modal-dropzone').style.display = 'none';
+  }
+
+  function openImageAiSettings() {
+    const modal = document.getElementById('modal-image-ai-settings');
+    if (modal) modal.style.display = 'flex';
+    refreshImageAiSettingsStatus();
   }
 
   function closeImageAiSettings() {
@@ -1349,22 +1356,42 @@
   }
 
   async function refreshImageAiSettingsStatus() {
-    const statusEl = document.getElementById('sidebar-api-status');
-    if (!statusEl) return;
-    statusEl.className = 'sidebar-api-status';
-    statusEl.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i><span>Status wird geladen…</span>';
+    // Status im Modal aktualisieren
+    const modalStatus = document.getElementById('img-key-status');
+    if (modalStatus) {
+      modalStatus.style.cssText = 'display:flex;align-items:center;gap:.5rem;padding:.6rem .9rem;border-radius:8px;font-size:.8rem;margin-bottom:.75rem;background:#fffbeb;border:1px solid #fde68a;color:#92400e';
+      modalStatus.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i><span>Status wird geladen…</span>';
+    }
     try {
-      const { data } = await callImageFunction('settings_status');
-      if (data?.configured) {
-        statusEl.className = 'sidebar-api-status ok';
-        statusEl.innerHTML = '<i class="fa-solid fa-circle-check"></i><span>API-Key hinterlegt</span>';
+      // Warten bis Supabase-Session bereit ist
+      const sb = window.RootsUser?._sb;
+      if (!sb) {
+        if (modalStatus) modalStatus.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i><span>Warte auf Anmeldung…</span>';
+        return;
+      }
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session) {
+        if (modalStatus) modalStatus.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i><span>Bitte anmelden</span>';
+        return;
+      }
+      const result = await callImageFunction('settings_status');
+      const configured = result?.configured || result?.data?.configured;
+      if (configured) {
+        if (modalStatus) {
+          modalStatus.style.cssText = 'display:flex;align-items:center;gap:.5rem;padding:.6rem .9rem;border-radius:8px;font-size:.8rem;margin-bottom:.75rem;background:#ecfdf5;border:1px solid #a7f3d0;color:#047857';
+          modalStatus.innerHTML = '<i class="fa-solid fa-circle-check"></i><span>Google API-Key hinterlegt ✓</span>';
+        }
       } else {
-        statusEl.className = 'sidebar-api-status warn';
-        statusEl.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i><span>Kein API-Key gesetzt</span>';
+        if (modalStatus) {
+          modalStatus.style.cssText = 'display:flex;align-items:center;gap:.5rem;padding:.6rem .9rem;border-radius:8px;font-size:.8rem;margin-bottom:.75rem;background:#fffbeb;border:1px solid #fde68a;color:#92400e';
+          modalStatus.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i><span>Kein API-Key gesetzt — bitte unten eintragen</span>';
+        }
       }
     } catch (error) {
-      statusEl.className = 'sidebar-api-status warn';
-      statusEl.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i><span>Status nicht abrufbar</span>';
+      if (modalStatus) {
+        modalStatus.style.cssText = 'display:flex;align-items:center;gap:.5rem;padding:.6rem .9rem;border-radius:8px;font-size:.8rem;margin-bottom:.75rem;background:#fef2f2;border:1px solid #fca5a5;color:#b91c1c';
+        modalStatus.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i><span>Status nicht abrufbar: ' + (error.message||'Verbindungsfehler') + '</span>';
+      }
     }
   }
 
@@ -1438,10 +1465,9 @@
           const styleOpt = styleOptions.find(o => o.id === currentStyleValue);
           const stylePrompt = styleOpt ? styleOpt.prompt : '';
 
-          const result = await callImageFunction('generate', {
-            model: model.id,
-            prompt: promptText,
-            stylePrompt,
+          const result = await callImageFunction('generate_image', {
+            modelId: model.id,
+            promptText: stylePrompt ? `${promptText}\n\n${stylePrompt}` : promptText,
             aspect,
             refImageData: refImageData || null,
             refImageMimeType: refImageMimeType || null
@@ -1709,12 +1735,8 @@ window.RootsUser = window.RootsUser || {
     if(nmEl){nmEl.textContent=p.full_name||p.email||'';nmEl.style.cursor='pointer';nmEl.onclick=()=>this.openSettings();}
     const sidebarSettings=document.getElementById('sidebar-settings-area');
     if(sidebarSettings){
-      if(this.isAdmin()){
-        sidebarSettings.classList.add('visible');
-        if(typeof refreshImageAiSettingsStatus==='function')refreshImageAiSettingsStatus();
-      } else {
-        sidebarSettings.classList.remove('visible');
-      }
+      // Zeige Einstellungs-Button nur für Admins (wie WissensHub)
+      sidebarSettings.style.display = this.isAdmin() ? 'block' : 'none';
     }
   },
   isAdmin(){return this._p?.app_role==='admin'},
