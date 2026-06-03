@@ -692,7 +692,37 @@
   .history-toolbar { display:flex; align-items:center; justify-content:space-between; padding:1rem 1.5rem; border-bottom:1px solid var(--line,#e2e8f0); flex-shrink:0; }
   .history-grid { flex:1; overflow-y:auto; padding:1.25rem 1.5rem; display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:1rem; align-content:start; }
   .history-empty { grid-column:1/-1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:3rem; color:var(--muted,#94a3b8); font-size:.9rem; }
-  .history-card { background:var(--bg,#fff); border:1px solid var(--line,#e2e8f0); border-radius:14px; overflow:hidden; transition:box-shadow .15s,transform .15s; cursor:default; }
+  .history-card { background:var(--bg,#fff); border:1px solid var(--line,#e2e8f0); border-radius:14px; overflow:hidden; transition:box-shadow .15s,transform .15s; cursor:default; position:relative; }
+  /* Gear-Icon on hover */
+  .history-card-gear { position:absolute; top:.5rem; right:.5rem; width:32px; height:32px; border-radius:8px; background:rgba(255,255,255,.92); backdrop-filter:blur(8px); border:1px solid var(--line,#e2e8f0); display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:.8rem; color:var(--muted,#64748b); opacity:0; transition:opacity .15s,color .15s,background .15s; box-shadow:0 2px 8px rgba(15,23,42,.12); z-index:2; }
+  .history-card:hover .history-card-gear { opacity:1; }
+  .history-card-gear:hover { color:var(--brand,#206efb); background:#fff; border-color:var(--brand,#206efb); }
+
+  /* Detail-Panel (Drawer von rechts) */
+  .history-detail-overlay { position:fixed; inset:0; background:rgba(15,23,42,.35); z-index:1000; opacity:0; transition:opacity .2s; pointer-events:none; }
+  .history-detail-overlay.open { opacity:1; pointer-events:all; }
+  .history-detail-panel { position:fixed; top:0; right:-440px; width:420px; max-width:100vw; height:100vh; background:var(--bg,#fff); border-left:1px solid var(--line,#e2e8f0); box-shadow:-8px 0 40px rgba(15,23,42,.16); z-index:1001; display:flex; flex-direction:column; transition:right .28s cubic-bezier(.4,0,.2,1); overflow:hidden; }
+  .history-detail-panel.open { right:0; }
+  .history-detail-header { display:flex; align-items:center; gap:.75rem; padding:1.1rem 1.25rem; border-bottom:1px solid var(--line,#e2e8f0); flex-shrink:0; }
+  .history-detail-header-img { width:52px; height:52px; border-radius:10px; object-fit:cover; background:var(--surface-2,#f8fafc); flex-shrink:0; }
+  .history-detail-header-title { flex:1; min-width:0; }
+  .history-detail-header-title h3 { font-size:.9rem; font-weight:700; color:var(--ink,#0f172a); margin:0 0 .15rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .history-detail-header-title p { font-size:.73rem; color:var(--muted,#64748b); margin:0; }
+  .history-detail-close { width:34px; height:34px; border:1px solid var(--line,#e2e8f0); border-radius:8px; background:transparent; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:.82rem; color:var(--muted,#64748b); flex-shrink:0; transition:all .15s; }
+  .history-detail-close:hover { background:var(--surface-2,#f8fafc); color:var(--ink,#0f172a); }
+  .history-detail-body { flex:1; overflow-y:auto; padding:1.1rem 1.25rem; display:flex; flex-direction:column; gap:1.1rem; }
+  .history-detail-section-label { font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted,#94a3b8); margin-bottom:.4rem; }
+  .history-detail-prompt { font-size:.83rem; color:var(--ink,#0f172a); line-height:1.6; background:var(--surface-2,#f8fafc); border-radius:10px; padding:.75rem .9rem; border:1px solid var(--line,#e2e8f0); word-break:break-word; }
+  .history-detail-meta-grid { display:grid; grid-template-columns:1fr 1fr; gap:.5rem; }
+  .history-detail-meta-item { background:var(--surface-2,#f8fafc); border-radius:8px; padding:.55rem .75rem; }
+  .history-detail-meta-item-label { font-size:.65rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--muted,#94a3b8); margin-bottom:.2rem; }
+  .history-detail-meta-item-value { font-size:.8rem; font-weight:600; color:var(--ink,#0f172a); }
+  .history-detail-footer { padding:.9rem 1.25rem 1.1rem; border-top:1px solid var(--line,#e2e8f0); display:flex; flex-direction:column; gap:.5rem; flex-shrink:0; }
+  .history-detail-btn { width:100%; height:42px; border-radius:10px; font-size:.85rem; font-weight:600; font-family:inherit; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:.5rem; transition:all .15s; }
+  .history-detail-btn.primary { background:var(--brand,#206efb); color:#fff; border:none; }
+  .history-detail-btn.primary:hover { filter:brightness(.92); }
+  .history-detail-btn.secondary { background:transparent; color:var(--ink,#0f172a); border:1px solid var(--line,#e2e8f0); }
+  .history-detail-btn.secondary:hover { background:var(--surface-2,#f8fafc); border-color:var(--brand,#206efb); color:var(--brand,#206efb); }
   .history-card:hover { box-shadow:0 4px 20px rgba(15,23,42,.12); transform:translateY(-1px); }
   .history-card-img { width:100%; aspect-ratio:1/1; object-fit:cover; display:block; background:var(--surface-2,#f8fafc); }
   .history-card-img.aspect-16-9 { aspect-ratio:16/9; }
@@ -1874,20 +1904,23 @@
 
     card.innerHTML = `
       ${imgHtml}
+      <!-- Gear-Icon: on-hover oben rechts -->
+      <button class="history-card-gear" onclick="openHistoryDetail('${item.id}', event)" title="Details anzeigen">
+        <i class="fa-solid fa-gear"></i>
+      </button>
       <div class="history-card-body">
         <div class="history-card-prompt" title="${escapeHtml(item.prompt)}">${escapeHtml(promptShort)}</div>
         <div class="history-card-meta">
           <div class="history-card-meta-row"><i class="fa-solid fa-microchip"></i>${escapeHtml(item.model_label || item.model_id)}</div>
           <div class="history-card-meta-row"><i class="fa-regular fa-calendar"></i>${date}</div>
           <div class="history-card-meta-row"><i class="fa-regular fa-user"></i>${escapeHtml(item.user_name || 'Unbekannt')}</div>
-          <div class="history-card-meta-row"><i class="fa-solid fa-crop"></i>${escapeHtml(item.aspect || '1:1')}</div>
         </div>
         <div class="history-card-actions">
           <button class="history-card-btn" onclick="downloadHistoryImage('${item.id}')" title="Herunterladen">
-            <i class="fa-solid fa-download"></i> Download
+            <i class="fa-solid fa-download"></i>
           </button>
-          <button class="history-card-btn" onclick="loadHistoryIntoForm('${item.id}')" title="In Maske laden">
-            <i class="fa-solid fa-rotate-left"></i> Laden
+          <button class="history-card-btn" onclick="openHistoryDetail('${item.id}')" title="Details">
+            <i class="fa-solid fa-circle-info"></i>
           </button>
           <button class="history-card-btn danger" onclick="deleteHistoryItem('${item.id}', this)" title="Löschen">
             <i class="fa-solid fa-trash"></i>
@@ -1897,8 +1930,9 @@
 
     card.dataset.historyId = item.id;
     card.dataset.historyData = JSON.stringify({
-      prompt: item.prompt, model_id: item.model_id, aspect: item.aspect,
-      style_id: item.style_id, image_data: item.image_data, mime_type: item.mime_type
+      prompt: item.prompt, model_id: item.model_id, model_label: item.model_label || item.model_id,
+      aspect: item.aspect, style_id: item.style_id, image_data: item.image_data,
+      mime_type: item.mime_type, user_name: item.user_name, created_at: item.created_at
     });
     return card;
   }
@@ -1964,7 +1998,58 @@
     toast('Einstellungen in Maske geladen ✓', 'success');
   };
 
-  window.deleteHistoryItem = async function(id, btn) {
+  window.openHistoryDetail = function(id, e) {
+  if (e) e.stopPropagation();
+  const card = document.querySelector(`[data-history-id="${id}"]`);
+  if (!card) return;
+  const data = JSON.parse(card.dataset.historyData || '{}');
+  const date = data.created_at
+    ? new Date(data.created_at).toLocaleDateString('de-DE', {day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'})
+    : '—';
+
+  // Header-Bild
+  const hdpImg = document.getElementById('hdp-img');
+  if (hdpImg) {
+    if (data.image_data) {
+      hdpImg.src = `data:${data.mime_type||'image/png'};base64,${data.image_data}`;
+      hdpImg.style.display = '';
+    } else {
+      hdpImg.src = ''; hdpImg.style.display = 'none';
+    }
+  }
+
+  // Felder füllen
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val || '—'; };
+  set('hdp-model',  data.model_label || data.model_id);
+  set('hdp-date',   date);
+  set('hdp-prompt', data.prompt);
+  set('hdp-user',   data.user_name);
+  set('hdp-date2',  date);
+  set('hdp-model2', data.model_label || data.model_id);
+  set('hdp-aspect', data.aspect);
+
+  // Buttons verdrahten
+  const btnLoad = document.getElementById('hdp-btn-load');
+  const btnDl   = document.getElementById('hdp-btn-download');
+  if (btnLoad) btnLoad.onclick = () => { closeHistoryDetail(); loadHistoryIntoForm(id); };
+  if (btnDl)   btnDl.onclick   = () => downloadHistoryImage(id);
+
+  // Panel öffnen
+  document.getElementById('history-detail-overlay')?.classList.add('open');
+  document.getElementById('history-detail-panel')?.classList.add('open');
+};
+
+window.closeHistoryDetail = function() {
+  document.getElementById('history-detail-overlay')?.classList.remove('open');
+  document.getElementById('history-detail-panel')?.classList.remove('open');
+};
+
+// ESC schließt Panel
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeHistoryDetail();
+});
+
+window.deleteHistoryItem = async function(id, btn) {
     if (!confirm('Dieses Bild aus dem Verlauf löschen?')) return;
     const orig = btn.innerHTML;
     btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
@@ -2281,5 +2366,58 @@ window.RootsUser = window.RootsUser || {
   }
 };
 </script>
+
+<!-- History Detail Panel -->
+<div class="history-detail-overlay" id="history-detail-overlay" onclick="closeHistoryDetail()"></div>
+<div class="history-detail-panel" id="history-detail-panel">
+  <div class="history-detail-header">
+    <img class="history-detail-header-img" id="hdp-img" src="" alt="" />
+    <div class="history-detail-header-title">
+      <h3 id="hdp-model">—</h3>
+      <p id="hdp-date">—</p>
+    </div>
+    <button class="history-detail-close" onclick="closeHistoryDetail()" title="Schließen">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+  </div>
+  <div class="history-detail-body">
+    <!-- Prompt -->
+    <div>
+      <div class="history-detail-section-label">Prompt</div>
+      <div class="history-detail-prompt" id="hdp-prompt">—</div>
+    </div>
+    <!-- Meta -->
+    <div>
+      <div class="history-detail-section-label">Details</div>
+      <div class="history-detail-meta-grid">
+        <div class="history-detail-meta-item">
+          <div class="history-detail-meta-item-label">Erstellt von</div>
+          <div class="history-detail-meta-item-value" id="hdp-user">—</div>
+        </div>
+        <div class="history-detail-meta-item">
+          <div class="history-detail-meta-item-label">Datum</div>
+          <div class="history-detail-meta-item-value" id="hdp-date2">—</div>
+        </div>
+        <div class="history-detail-meta-item">
+          <div class="history-detail-meta-item-label">Modell</div>
+          <div class="history-detail-meta-item-value" id="hdp-model2">—</div>
+        </div>
+        <div class="history-detail-meta-item">
+          <div class="history-detail-meta-item-label">Seitenverhältnis</div>
+          <div class="history-detail-meta-item-value" id="hdp-aspect">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="history-detail-footer">
+    <button class="history-detail-btn primary" id="hdp-btn-load">
+      <i class="fa-solid fa-rotate-left"></i> Einstellungen laden &amp; neu generieren
+    </button>
+    <button class="history-detail-btn secondary" id="hdp-btn-download">
+      <i class="fa-solid fa-download"></i> Bild herunterladen
+    </button>
+  </div>
+</div>
+
 </body>
 </html>
