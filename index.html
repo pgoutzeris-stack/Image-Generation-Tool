@@ -611,11 +611,11 @@
   }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://pgoutzeris-stack.github.io/ROOTS_Intranet/roots-user-bridge.js?v=20260522-hover"></script>
+  <script src="https://pgoutzeris-stack.github.io/ROOTS_Intranet/roots-user-bridge.js?v=20260601-final"></script>
 </head>
 <body>
 
-<div id="roots-auth-overlay" class="roots-auth-overlay">
+<div id="roots-auth-overlay" class="roots-auth-overlay" style="display:none">
   <div class="roots-login-card">
     <div class="roots-logo-wrap">
       <img src="https://roots-consultants.de/wp-content/uploads/2025/04/Roots-Brand-Strategy-Consultants-Logo.svg" alt="ROOTS" />
@@ -1589,8 +1589,10 @@
 <script>
 (function(){
   const SUPABASE_URL='https://csmguwcvzreefluhahyu.supabase.co';
-  const SUPABASE_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNzbWd1d2N2enJlZWZsdWhhYXl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQyMDIxMjksImV4cCI6MjA1OTc3ODEyOX0.8jHpJgqI6ME1i3VkJqBSrJ8PIU2TXorjfHOyMF7YQWE';
+  const SUPABASE_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNzbWd1d2N2enJlZWZsdWhhaHl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5NjM0ODcsImV4cCI6MjA5MjUzOTQ4N30.Fiafx7XBaQZXUX3bKQIBH7znBHx3B51yL-bftOHsL4Q';
   const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
+  window.__rootsSupabaseClient = sb; // Bridge: Session-Sync vom Intranet
+  if (window.RootsUser) window.RootsUser._sb = sb;
   window.RootsUser._loadAndMount(sb);
   const overlay=document.getElementById('roots-auth-overlay');
   const vLogin=document.getElementById('roots-view-login');
@@ -1600,9 +1602,25 @@
     document.getElementById('roots-login-btn').disabled=false;
     document.getElementById('roots-login-btn').innerHTML='<i class="fa-solid fa-arrow-right-to-bracket"></i> Anmelden';
   }
+  const IN_IFRAME = window.parent !== window;
+  let _authDone = false;
+  function _onSession(session){
+    if(session){_authDone=true;overlay.style.display='none';window.RootsUser._loadAndMount(sb);}
+  }
   sb.auth.onAuthStateChange((event,session)=>{
-    if(session){overlay.style.display='none';window.RootsUser._loadAndMount(sb);}
-    else{overlay.style.display='flex';}
+    if(session){_onSession(session);}
+    else if(event==='SIGNED_OUT'){overlay.style.display='flex';}
+  });
+  // Bridge meldet Session vom Intranet
+  window.addEventListener('roots-auth-ready',(e)=>{ if(e.detail?.session) _onSession(e.detail.session); });
+  // Initiale Session prüfen
+  sb.auth.getSession().then(({data:{session}})=>{
+    if(session){_onSession(session);}
+    else if(!IN_IFRAME){overlay.style.display='flex';}
+    else {
+      // iframe: warte auf Bridge-Sync, zeige Login nur wenn nach 2.5s nichts kam
+      setTimeout(()=>{ if(!_authDone){ sb.auth.getSession().then(({data:{session:s2}})=>{ if(!_authDone&&!s2) overlay.style.display='flex'; }); } }, 2500);
+    }
   });
   document.getElementById('roots-login-form').addEventListener('submit',async(e)=>{
     e.preventDefault();
