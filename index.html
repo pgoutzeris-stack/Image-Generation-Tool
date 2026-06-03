@@ -988,24 +988,25 @@
         
         <div>
           <label>Modell</label>
-          <input type="hidden" id="sel-model" value="auto">
+          <input type="hidden" id="sel-model" value="nb2">
           <div id="dd-model" class="custom-select-wrapper">
             <div class="custom-select-trigger" onclick="toggleDropdown('dd-model', event)">
-              <span class="selected-text">Auto (empfohlen)</span>
+              <span class="selected-text">Nano Banana 2</span>
               <i class="fa-solid fa-chevron-down arrow"></i>
             </div>
             <div class="custom-options">
-              <div class="custom-option" onclick="setSimpleOpt('dd-model', 'sel-model', 'nb3', 'Nano Banana 3', event)">
-                <span class="option-text">Nano Banana 3 <span style="font-size:.7rem;color:#8b5cf6;font-weight:600">BEST</span></span>
+              <div class="custom-option" onclick="setSimpleOpt('dd-model', 'sel-model', 'nbpro', 'Nano Banana Pro', event)">
+                <span class="option-text">Nano Banana Pro <span style="font-size:.7rem;color:#8b5cf6;font-weight:600">PRO</span></span>
               </div>
-              <div class="custom-option selected" onclick="setSimpleOpt('dd-model', 'sel-model', 'auto', 'Auto (empfohlen)', event)">
+              <div class="custom-option selected" onclick="setSimpleOpt('dd-model', 'sel-model', 'nb2', 'Nano Banana 2', event)">
                 <span class="option-text">Auto (empfohlen)</span>
               </div>
-              <div class="custom-option" onclick="setSimpleOpt('dd-model', 'sel-model', 'nb2', 'Nano Banana 2', event)">
-                <span class="option-text">Nano Banana 2</span>
-              </div>
+
               <div class="custom-option" onclick="setSimpleOpt('dd-model', 'sel-model', 'nb1', 'Nano Banana 1', event)">
                 <span class="option-text">Nano Banana 1</span>
+              </div>
+              <div class="custom-option" onclick="setSimpleOpt('dd-model', 'sel-model', 'auto', 'Auto (empfohlen)', event)">
+                <span class="option-text">Auto <span style="font-size:.7rem;color:#94a3b8">empfohlen</span></span>
               </div>
             </div>
           </div>
@@ -1382,9 +1383,9 @@
   }
 
   const IMAGE_FUNCTION_URL = 'https://csmguwcvzreefluhahyu.supabase.co/functions/v1/image-generation';
-  const MODEL_NB3 = 'gemini-2.0-flash-exp';  // NB3 — experimental, beste Qualität
-  const MODEL_NB2 = 'gemini-3.1-flash-image-preview';
-  const MODEL_NB1 = 'gemini-2.5-flash-image';
+  const MODEL_PRO = 'gemini-3-pro-image';        // Nano Banana Pro — professionell
+  const MODEL_NB2 = 'gemini-3.1-flash-image';    // Nano Banana 2 — beste Balance
+  const MODEL_NB1 = 'gemini-2.5-flash-image';    // Nano Banana 1 — schnell
   const RETRYABLE_KEYWORDS = [
     'resource', 'overloaded', 'rate', 'quota', 'limit', 'capacity',
     'demand', 'busy', 'try again', 'unavailable', 'internal', 'backend',
@@ -1638,12 +1639,12 @@
 
   async function generateWithRetry(promptText, idx, total, mimeType, modelMode, aspect) {
     var models;
-    if (modelMode === 'nb3') { models = [{ id: MODEL_NB3, label: 'Nano Banana 3', maxRetries: 3 }]; }
+    if (modelMode === 'nbpro') { models = [{ id: MODEL_PRO, label: 'Nano Banana Pro', maxRetries: 3 }]; }
     else if (modelMode === 'nb1') { models = [{ id: MODEL_NB1, label: 'Nano Banana 1', maxRetries: 5 }]; }
     else if (modelMode === 'nb2') { models = [{ id: MODEL_NB2, label: 'Nano Banana 2', maxRetries: 5 }]; }
     else {
       models = [
-        { id: MODEL_NB3, label: 'Nano Banana 3', maxRetries: 2 },
+        { id: MODEL_PRO, label: 'Nano Banana Pro', maxRetries: 2 },
         { id: MODEL_NB2, label: 'Nano Banana 2 (Fallback)', maxRetries: 2 },
         { id: MODEL_NB1, label: 'Nano Banana 1 (Fallback)', maxRetries: 5 }
       ];
@@ -1981,7 +1982,7 @@
     }
 
     if (data.model_id) {
-      const modeMap = { 'gemini-2.0-flash-exp':'nb3', 'gemini-3.1-flash-image-preview':'nb2', 'gemini-2.5-flash-image':'nb1' };
+      const modeMap = { 'gemini-3-pro-image':'nbpro', 'gemini-3.1-flash-image':'nb2', 'gemini-2.5-flash-image':'nb1' };
       const modeVal = modeMap[data.model_id] || 'nb2';
       const modelSelect = document.getElementById('sel-model');
       if (modelSelect) modelSelect.value = modeVal;
@@ -1989,7 +1990,7 @@
       if (ddModel) {
         const selText = ddModel.querySelector('.selected-text');
         if (selText) {
-          const labelMap = { nb3:'Nano Banana 3', nb2:'Nano Banana 2', nb1:'Nano Banana 1' };
+          const labelMap = { nbpro:'Nano Banana Pro', nb2:'Nano Banana 2', nb1:'Nano Banana 1' };
           selText.textContent = labelMap[modeVal] || 'Nano Banana 2';
         }
       }
