@@ -1433,10 +1433,37 @@
     });
 
     if (!resp.ok) {
-      const errData = await resp.json().catch(() => ({}));
-      throw new Error(errData.error || `HTTP ${resp.status}`);
+      let errMsg = `HTTP ${resp.status}`;
+      try {
+        const errData = await resp.json();
+        // Google-Fehler oder Edge-Fehler
+        errMsg = errData?.error?.message || errData?.error?.error?.message
+               || errData?.error || errMsg;
+        if (resp.status === 503) errMsg = 'Google API-Key nicht hinterlegt — bitte in KI-Einstellungen speichern';
+        if (resp.status === 401) errMsg = 'Nicht angemeldet — bitte Seite neu laden';
+      } catch {}
+      throw new Error(errMsg);
     }
-    return resp.json();
+
+    // Google-Antwort parsen → einheitliches {imageData, mimeType} Format
+    const raw = await resp.json();
+
+    // Google Gemini Format: candidates[0].content.parts[*].inlineData
+    const parts = raw?.candidates?.[0]?.content?.parts ?? [];
+    const imgPart = parts.find(p => p?.inlineData?.data);
+    if (imgPart) {
+      return {
+        imageData: imgPart.inlineData.data,
+        mimeType:  imgPart.inlineData.mimeType || 'image/png',
+        raw
+      };
+    }
+
+    // Kein Bild in der Antwort — Fehlermeldung extrahieren
+    const errText = raw?.candidates?.[0]?.finishReason
+      || raw?.error?.message
+      || 'Kein Bild generiert — möglicherweise Sicherheitsfilter oder Modell-Fehler';
+    throw new Error(errText);
   }
 
   function sleep(ms) {
@@ -1629,8 +1656,12 @@
           });
 
           if (batchCancelled) { completeActiveLog(activeLog, "Gestoppt.", 'warn'); return null; }
-          completeActiveLog(activeLog, `Bild ${idx}/${total} · ${model.label} · ✓ Fertig`, 'success');
-          return result;
+          if (result?.imageData) {
+            completeActiveLog(activeLog, `Bild ${idx}/${total} · ${model.label} · ✓ Fertig`, 'success');
+          } else {
+            completeActiveLog(activeLog, `Bild ${idx}/${total} · ${model.label} · Kein Bild erhalten`, 'error');
+          }
+          return result?.imageData ? result : null;
 
         } catch (error) {
           if (batchCancelled) { if(activeLog) completeActiveLog(activeLog, "Gestoppt.", 'warn'); return null; }
@@ -1643,7 +1674,8 @@
             completeActiveLog(activeLog, `Bild ${idx} · ${model.label} · Alle Versuche fehlgeschlagen: ${msg}`, 'warn');
             break;
           } else {
-            completeActiveLog(activeLog, `Bild ${idx} · ${model.label} · Fehler: ${msg}`, 'error');
+            const fullErr = msg.length > 120 ? msg.slice(0,117)+'…' : msg;
+            completeActiveLog(activeLog, `Bild ${idx} · ${model.label} · ✗ ${fullErr}`, 'error');
             if (m === models.length - 1) return null;
             break;
           }
@@ -1955,8 +1987,7 @@
   const SUPABASE_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNzbWd1d2N2enJlZWZsdWhhaHl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5NjM0ODcsImV4cCI6MjA5MjUzOTQ4N30.Fiafx7XBaQZXUX3bKQIBH7znBHx3B51yL-bftOHsL4Q';
   const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
   window.__rootsSupabaseClient = sb; // Bridge: Session-Sync vom Intranet
-  if (window.RootsUser) window.RootsUser._sb = sb;
-  window.RootsUser._loadAndMount(sb);
+  if (window.RootsUser) { window.RootsUser._sb = sb; window.RootsUser._loadAndMount(sb); }
   const overlay=document.getElementById('roots-auth-overlay');
   const vLogin=document.getElementById('roots-view-login');
   const vForgot=document.getElementById('roots-view-forgot');
