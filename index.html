@@ -670,9 +670,42 @@
   /* ─── Main scroll area ─── */
   .dash-main {
     flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .dash-main-content {
+    flex: 1;
     overflow-y: auto;
     padding: 24px;
   }
+
+  /* ── Tabs ─────────────────────────────────────────────────────── */
+  .gen-tabs { display:flex; gap:.25rem; padding:.75rem 1.5rem 0; border-bottom:1px solid var(--line,#e2e8f0); background:var(--bg,#fff); flex-shrink:0; }
+  .gen-tab { display:flex; align-items:center; gap:.45rem; padding:.55rem 1rem; border:none; border-radius:10px 10px 0 0; background:transparent; color:var(--muted,#64748b); font-size:.84rem; font-weight:600; font-family:inherit; cursor:pointer; transition:all .15s; border-bottom:2px solid transparent; }
+  .gen-tab:hover { color:var(--ink,#0f172a); background:var(--surface-2,#f8fafc); }
+  .gen-tab.active { color:var(--brand,#206efb); border-bottom-color:var(--brand,#206efb); background:transparent; }
+  .gen-tab-badge { background:var(--brand,#206efb); color:#fff; font-size:.65rem; font-weight:700; padding:.1rem .4rem; border-radius:999px; }
+
+  /* ── History Panel ────────────────────────────────────────────── */
+  .history-panel { flex:1; display:flex; flex-direction:column; overflow:hidden; background:var(--bg,#fff); }
+  .history-toolbar { display:flex; align-items:center; justify-content:space-between; padding:1rem 1.5rem; border-bottom:1px solid var(--line,#e2e8f0); flex-shrink:0; }
+  .history-grid { flex:1; overflow-y:auto; padding:1.25rem 1.5rem; display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:1rem; align-content:start; }
+  .history-empty { grid-column:1/-1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:3rem; color:var(--muted,#94a3b8); font-size:.9rem; }
+  .history-card { background:var(--bg,#fff); border:1px solid var(--line,#e2e8f0); border-radius:14px; overflow:hidden; transition:box-shadow .15s,transform .15s; cursor:default; }
+  .history-card:hover { box-shadow:0 4px 20px rgba(15,23,42,.12); transform:translateY(-1px); }
+  .history-card-img { width:100%; aspect-ratio:1/1; object-fit:cover; display:block; background:var(--surface-2,#f8fafc); }
+  .history-card-img.aspect-16-9 { aspect-ratio:16/9; }
+  .history-card-img.aspect-9-16 { aspect-ratio:9/16; }
+  .history-card-body { padding:.75rem; }
+  .history-card-prompt { font-size:.78rem; color:var(--ink,#0f172a); line-height:1.4; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; margin-bottom:.5rem; font-weight:500; }
+  .history-card-meta { display:flex; flex-direction:column; gap:.2rem; margin-bottom:.6rem; }
+  .history-card-meta-row { display:flex; align-items:center; gap:.4rem; font-size:.72rem; color:var(--muted,#64748b); }
+  .history-card-meta-row i { width:12px; text-align:center; }
+  .history-card-actions { display:flex; gap:.35rem; }
+  .history-card-btn { flex:1; height:32px; border:1px solid var(--line,#e2e8f0); border-radius:8px; background:transparent; color:var(--ink,#0f172a); font-size:.75rem; font-weight:600; font-family:inherit; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:.3rem; transition:all .15s; }
+  .history-card-btn:hover { background:var(--brand,#206efb); color:#fff; border-color:var(--brand,#206efb); }
+  .history-card-btn.danger:hover { background:#ef4444; border-color:#ef4444; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://pgoutzeris-stack.github.io/ROOTS_Intranet/roots-user-bridge.js?v=20260601-final"></script>
@@ -838,6 +871,38 @@
 
   <!-- Hauptinhalt -->
   <div class="dash-main">
+
+    <!-- Tab-Navigation -->
+    <div class="gen-tabs" id="gen-tabs">
+      <button class="gen-tab active" id="tab-generate" onclick="switchGenTab('generate')">
+        <i class="fa-solid fa-wand-magic-sparkles"></i> Generieren
+      </button>
+      <button class="gen-tab" id="tab-history" onclick="switchGenTab('history')">
+        <i class="fa-solid fa-clock-rotate-left"></i> Verlauf
+        <span class="gen-tab-badge" id="history-badge" style="display:none">0</span>
+      </button>
+    </div>
+
+    <!-- Verlauf-Panel -->
+    <div id="panel-history" class="history-panel" style="display:none">
+      <div class="history-toolbar">
+        <div style="display:flex;align-items:center;gap:.75rem">
+          <h2 style="font-size:1rem;font-weight:700;color:var(--ink,#0f172a);margin:0">Generierungsverlauf</h2>
+          <span id="history-count" style="font-size:.78rem;color:var(--muted,#64748b)"></span>
+        </div>
+        <button class="btn-secondary" onclick="loadHistory()" style="height:36px;font-size:.8rem">
+          <i class="fa-solid fa-rotate"></i> Aktualisieren
+        </button>
+      </div>
+      <div id="history-grid" class="history-grid">
+        <div class="history-empty" id="history-empty">
+          <i class="fa-solid fa-clock-rotate-left" style="font-size:2rem;color:var(--muted,#94a3b8);margin-bottom:.75rem"></i>
+          <p>Noch keine Bilder generiert</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="dash-main-content" id="panel-generate">
 <div class="main-wrapper">
   
   <div class="left-panel">
@@ -902,6 +967,9 @@
               <i class="fa-solid fa-chevron-down arrow"></i>
             </div>
             <div class="custom-options">
+              <div class="custom-option" onclick="setSimpleOpt('dd-model', 'sel-model', 'nb3', 'Nano Banana 3', event)">
+                <span class="option-text">Nano Banana 3 <span style="font-size:.7rem;color:#8b5cf6;font-weight:600">BEST</span></span>
+              </div>
               <div class="custom-option selected" onclick="setSimpleOpt('dd-model', 'sel-model', 'auto', 'Auto (empfohlen)', event)">
                 <span class="option-text">Auto (empfohlen)</span>
               </div>
@@ -1007,6 +1075,7 @@
   </div>
 
 </div><!-- /main-wrapper -->
+    </div><!-- /dash-main-content / panel-generate -->
   </div><!-- /dash-main -->
 </div><!-- /dash-body -->
 </div><!-- /app-shell -->
@@ -1285,6 +1354,7 @@
   }
 
   const IMAGE_FUNCTION_URL = 'https://csmguwcvzreefluhahyu.supabase.co/functions/v1/image-generation';
+  const MODEL_NB3 = 'gemini-2.5-pro-preview-06-05';  // NB3 — höchste Qualität
   const MODEL_NB2 = 'gemini-3.1-flash-image-preview';
   const MODEL_NB1 = 'gemini-2.5-flash-image';
   const RETRYABLE_KEYWORDS = [
@@ -1510,11 +1580,13 @@
 
   async function generateWithRetry(promptText, idx, total, mimeType, modelMode, aspect) {
     var models;
-    if (modelMode === 'nb1') { models = [{ id: MODEL_NB1, label: 'Nano Banana 1', maxRetries: 5 }]; } 
-    else if (modelMode === 'nb2') { models = [{ id: MODEL_NB2, label: 'Nano Banana 2', maxRetries: 5 }]; } 
+    if (modelMode === 'nb3') { models = [{ id: MODEL_NB3, label: 'Nano Banana 3', maxRetries: 3 }]; }
+    else if (modelMode === 'nb1') { models = [{ id: MODEL_NB1, label: 'Nano Banana 1', maxRetries: 5 }]; }
+    else if (modelMode === 'nb2') { models = [{ id: MODEL_NB2, label: 'Nano Banana 2', maxRetries: 5 }]; }
     else {
       models = [
-        { id: MODEL_NB2, label: 'Nano Banana 2', maxRetries: 2 },
+        { id: MODEL_NB3, label: 'Nano Banana 3', maxRetries: 2 },
+        { id: MODEL_NB2, label: 'Nano Banana 2 (Fallback)', maxRetries: 2 },
         { id: MODEL_NB1, label: 'Nano Banana 1 (Fallback)', maxRetries: 5 }
       ];
     }
@@ -1548,8 +1620,10 @@
 
           const result = await callImageFunction('generate_image', {
             modelId: model.id,
+            modelLabel: model.label,
             promptText: stylePrompt ? `${promptText}\n\n${stylePrompt}` : promptText,
             aspect,
+            styleId: currentStyleValue || '',
             refImageData: refImageData || null,
             refImageMimeType: refImageMimeType || null
           });
@@ -1690,6 +1764,188 @@
   document.addEventListener('DOMContentLoaded', () => {
     renderCustomDropdown();
   });
+
+  // ── Tab-Switching ─────────────────────────────────────────────────────────
+  function switchGenTab(tab) {
+    const generatePanel = document.getElementById('panel-generate');
+    const historyPanel  = document.getElementById('panel-history');
+    const tabGenerate   = document.getElementById('tab-generate');
+    const tabHistory    = document.getElementById('tab-history');
+
+    if (tab === 'history') {
+      if (generatePanel) generatePanel.style.display = 'none';
+      if (historyPanel) historyPanel.style.display = 'flex';
+      tabGenerate?.classList.remove('active');
+      tabHistory?.classList.add('active');
+      loadHistory();
+    } else {
+      if (generatePanel) generatePanel.style.display = '';
+      if (historyPanel) historyPanel.style.display = 'none';
+      tabGenerate?.classList.add('active');
+      tabHistory?.classList.remove('active');
+    }
+  }
+
+  // ── History laden ─────────────────────────────────────────────────────────
+  async function loadHistory() {
+    const grid  = document.getElementById('history-grid');
+    const empty = document.getElementById('history-empty');
+    const count = document.getElementById('history-count');
+    const badge = document.getElementById('history-badge');
+    if (!grid) return;
+
+    grid.innerHTML = '<div class="history-empty"><i class="fa-solid fa-circle-notch fa-spin" style="font-size:1.5rem;color:var(--brand,#206efb)"></i></div>';
+
+    try {
+      const data = await callImageFunction('get_history', { limit: 100 });
+      const items = data?.history || [];
+
+      if (count) count.textContent = items.length + ' Bild' + (items.length !== 1 ? 'er' : '');
+      if (badge) { badge.textContent = items.length; badge.style.display = items.length > 0 ? '' : 'none'; }
+
+      if (!items.length) {
+        grid.innerHTML = '';
+        if (empty) { empty.style.display = 'flex'; grid.appendChild(empty); }
+        return;
+      }
+
+      grid.innerHTML = '';
+      items.forEach(item => {
+        const card = buildHistoryCard(item);
+        grid.appendChild(card);
+      });
+    } catch (e) {
+      grid.innerHTML = `<div class="history-empty"><i class="fa-solid fa-triangle-exclamation" style="font-size:1.5rem;color:#ef4444"></i><p>Fehler beim Laden: ${e.message}</p></div>`;
+    }
+  }
+
+  function buildHistoryCard(item) {
+    const card = document.createElement('div');
+    card.className = 'history-card';
+    const date = new Date(item.created_at).toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' });
+    const aspectClass = item.aspect === '16:9' ? 'aspect-16-9' : item.aspect === '9:16' ? 'aspect-9-16' : '';
+
+    let imgHtml = '';
+    if (item.image_data) {
+      const mime = item.mime_type || 'image/png';
+      imgHtml = `<img class="history-card-img ${aspectClass}" src="data:${mime};base64,${item.image_data}" alt="${escapeHtml(item.prompt)}" loading="lazy" />`;
+    } else {
+      imgHtml = `<div class="history-card-img ${aspectClass}" style="display:flex;align-items:center;justify-content:center;background:#f1f5f9"><i class="fa-solid fa-image" style="font-size:2rem;color:#94a3b8"></i></div>`;
+    }
+
+    const promptShort = item.prompt.length > 120 ? item.prompt.slice(0,119)+'…' : item.prompt;
+
+    card.innerHTML = `
+      ${imgHtml}
+      <div class="history-card-body">
+        <div class="history-card-prompt" title="${escapeHtml(item.prompt)}">${escapeHtml(promptShort)}</div>
+        <div class="history-card-meta">
+          <div class="history-card-meta-row"><i class="fa-solid fa-microchip"></i>${escapeHtml(item.model_label || item.model_id)}</div>
+          <div class="history-card-meta-row"><i class="fa-regular fa-calendar"></i>${date}</div>
+          <div class="history-card-meta-row"><i class="fa-regular fa-user"></i>${escapeHtml(item.user_name || 'Unbekannt')}</div>
+          <div class="history-card-meta-row"><i class="fa-solid fa-crop"></i>${escapeHtml(item.aspect || '1:1')}</div>
+        </div>
+        <div class="history-card-actions">
+          <button class="history-card-btn" onclick="downloadHistoryImage('${item.id}')" title="Herunterladen">
+            <i class="fa-solid fa-download"></i> Download
+          </button>
+          <button class="history-card-btn" onclick="loadHistoryIntoForm('${item.id}')" title="In Maske laden">
+            <i class="fa-solid fa-rotate-left"></i> Laden
+          </button>
+          <button class="history-card-btn danger" onclick="deleteHistoryItem('${item.id}', this)" title="Löschen">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </div>
+      </div>`;
+
+    card.dataset.historyId = item.id;
+    card.dataset.historyData = JSON.stringify({
+      prompt: item.prompt, model_id: item.model_id, aspect: item.aspect,
+      style_id: item.style_id, image_data: item.image_data, mime_type: item.mime_type
+    });
+    return card;
+  }
+
+  function escapeHtml(str) {
+    return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  window.downloadHistoryImage = function(id) {
+    const card = document.querySelector(`[data-history-id="${id}"]`);
+    if (!card) return;
+    const data = JSON.parse(card.dataset.historyData || '{}');
+    if (!data.image_data) { toast('Keine Bilddaten verfügbar.', 'error'); return; }
+    const mime = data.mime_type || 'image/png';
+    const ext  = mime.includes('png') ? 'png' : 'jpg';
+    const link = document.createElement('a');
+    link.href     = `data:${mime};base64,${data.image_data}`;
+    link.download = `nanobana-${id.slice(0,8)}.${ext}`;
+    link.click();
+    toast('Bild wird heruntergeladen…', 'success');
+  };
+
+  window.loadHistoryIntoForm = function(id) {
+    const card = document.querySelector(`[data-history-id="${id}"]`);
+    if (!card) return;
+    const data = JSON.parse(card.dataset.historyData || '{}');
+
+    switchGenTab('generate');
+
+    const promptInputs = document.querySelectorAll('#prompt-list input[type="text"]');
+    if (promptInputs.length > 0) {
+      promptInputs[0].value = data.prompt || '';
+      promptInputs[0].dispatchEvent(new Event('input'));
+    }
+
+    if (data.aspect) {
+      const aspSelect = document.getElementById('sel-aspect');
+      if (aspSelect) {
+        aspSelect.value = data.aspect;
+        const aspWrapper = document.getElementById('dd-aspect');
+        if (aspWrapper) {
+          const selText = aspWrapper.querySelector('.selected-text');
+          if (selText) selText.textContent = data.aspect;
+        }
+      }
+    }
+
+    if (data.model_id) {
+      const modeMap = { 'gemini-2.5-pro-preview-06-05':'nb3', 'gemini-3.1-flash-image-preview':'nb2', 'gemini-2.5-flash-image':'nb1' };
+      const modeVal = modeMap[data.model_id] || 'nb2';
+      const modelSelect = document.getElementById('sel-model');
+      if (modelSelect) modelSelect.value = modeVal;
+      const ddModel = document.getElementById('dd-model');
+      if (ddModel) {
+        const selText = ddModel.querySelector('.selected-text');
+        if (selText) {
+          const labelMap = { nb3:'Nano Banana 3', nb2:'Nano Banana 2', nb1:'Nano Banana 1' };
+          selText.textContent = labelMap[modeVal] || 'Nano Banana 2';
+        }
+      }
+    }
+
+    toast('Einstellungen in Maske geladen ✓', 'success');
+  };
+
+  window.deleteHistoryItem = async function(id, btn) {
+    if (!confirm('Dieses Bild aus dem Verlauf löschen?')) return;
+    const orig = btn.innerHTML;
+    btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+    try {
+      await callImageFunction('delete_history_item', { id });
+      const card = btn.closest('.history-card');
+      if (card) card.remove();
+      toast('Aus Verlauf gelöscht.', 'success');
+      const remaining = document.querySelectorAll('.history-card').length;
+      const count = document.getElementById('history-count');
+      const badge = document.getElementById('history-badge');
+      if (count) count.textContent = remaining + ' Bild' + (remaining !== 1 ? 'er' : '');
+      if (badge) { badge.textContent = remaining; badge.style.display = remaining > 0 ? '' : 'none'; }
+    } catch (e) {
+      toast('Fehler beim Löschen: ' + e.message, 'error');
+      btn.disabled = false; btn.innerHTML = orig;
+    }
+  };
 
 </script>
 
