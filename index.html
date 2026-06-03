@@ -890,9 +890,7 @@
           <h2 style="font-size:1rem;font-weight:700;color:var(--ink,#0f172a);margin:0">Generierungsverlauf</h2>
           <span id="history-count" style="font-size:.78rem;color:var(--muted,#64748b)"></span>
         </div>
-        <button class="btn-secondary" onclick="loadHistory()" style="height:36px;font-size:.8rem">
-          <i class="fa-solid fa-rotate"></i> Aktualisieren
-        </button>
+    
       </div>
       <div id="history-grid" class="history-grid">
         <div class="history-empty" id="history-empty">
@@ -1354,7 +1352,7 @@
   }
 
   const IMAGE_FUNCTION_URL = 'https://csmguwcvzreefluhahyu.supabase.co/functions/v1/image-generation';
-  const MODEL_NB3 = 'gemini-2.5-pro-preview-06-05';  // NB3 — höchste Qualität
+  const MODEL_NB3 = 'gemini-2.0-flash-exp';  // NB3 — experimental, beste Qualität
   const MODEL_NB2 = 'gemini-3.1-flash-image-preview';
   const MODEL_NB1 = 'gemini-2.5-flash-image';
   const RETRYABLE_KEYWORDS = [
@@ -1445,8 +1443,10 @@
       throw new Error(errMsg);
     }
 
-    // Google-Antwort parsen → einheitliches {imageData, mimeType} Format
     const raw = await resp.json();
+
+    // Nur generate_image liefert Google-Bildformat — andere Actions direkt zurückgeben
+    if (action !== 'generate_image') return raw;
 
     // Google Gemini Format: candidates[0].content.parts[*].inlineData
     const parts = raw?.candidates?.[0]?.content?.parts ?? [];
@@ -1459,10 +1459,11 @@
       };
     }
 
-    // Kein Bild in der Antwort — Fehlermeldung extrahieren
-    const errText = raw?.candidates?.[0]?.finishReason
-      || raw?.error?.message
-      || 'Kein Bild generiert — möglicherweise Sicherheitsfilter oder Modell-Fehler';
+    // Kein Bild — konkreten Google-Fehler extrahieren
+    const finishReason = raw?.candidates?.[0]?.finishReason;
+    const googleErr = raw?.error?.message;
+    const errText = googleErr || (finishReason && finishReason !== 'STOP' ? `Abgebrochen (${finishReason})` : null)
+      || 'Kein Bild generiert — Sicherheitsfilter oder Modell-Fehler';
     throw new Error(errText);
   }
 
@@ -1744,7 +1745,7 @@
           <img src="${imgSrc}" alt="Bild ${i+1}" onclick="openLightbox('${imgSrc}')">
           <div class="img-number">${i + 1}</div>
           <a href="${imgSrc}" download="bild-${i+1}.png" class="btn-dl-single">
-            <i class="fa-solid fa-download"></i> DL
+            <i class="fa-solid fa-download"></i>
           </a>
         `;
       } else if (!batchCancelled) {
@@ -1760,6 +1761,10 @@
 
     if (!batchCancelled) {
       simpleLog(`Batch abgeschlossen. ${generatedImagesGlobal.length}/${total} Bilder erfolgreich.`, generatedImagesGlobal.length === total ? 'success' : 'warn');
+      // History automatisch aktualisieren wenn Tab offen
+      if (document.getElementById('tab-history')?.classList.contains('active')) {
+        loadHistory();
+      }
     } else {
       simpleLog('Generierung gestoppt.', 'warn');
     }
@@ -1942,7 +1947,7 @@
     }
 
     if (data.model_id) {
-      const modeMap = { 'gemini-2.5-pro-preview-06-05':'nb3', 'gemini-3.1-flash-image-preview':'nb2', 'gemini-2.5-flash-image':'nb1' };
+      const modeMap = { 'gemini-2.0-flash-exp':'nb3', 'gemini-3.1-flash-image-preview':'nb2', 'gemini-2.5-flash-image':'nb1' };
       const modeVal = modeMap[data.model_id] || 'nb2';
       const modelSelect = document.getElementById('sel-model');
       if (modelSelect) modelSelect.value = modeVal;
