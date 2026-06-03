@@ -364,6 +364,15 @@
   .modal-title { font-size: 1.1rem; font-weight: 700; }
   .modal-body { padding: 0 1.35rem 1.35rem; display: flex; flex-direction: column; gap: .75rem; }
   .modal-foot { padding: .85rem 1.35rem 1.35rem; display: flex; gap: .5rem; justify-content: flex-end; }
+  .modal-icon { width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.15rem;margin:0 auto .75rem; }
+  .modal-icon.danger  { background:#fef2f2; color:#dc2626; }
+  .roots-confirm-modal .modal-body { text-align:center; padding:1.5rem 1.35rem 1rem; }
+  .roots-confirm-modal .modal-body p { color:var(--c-text-muted,#64748b); font-size:.875rem; line-height:1.5; margin:0; }
+  .roots-confirm-modal .modal-foot { justify-content:center; gap:.6rem; padding-bottom:1.35rem; }
+  .roots-confirm-modal .btn-rc-cancel { padding:.7rem 1.35rem; border:1px solid var(--c-border,#e2e8f0); border-radius:10px; background:transparent; font-family:inherit; font-weight:600; font-size:.875rem; color:var(--c-text,#1e293b); cursor:pointer; transition:all .15s; }
+  .roots-confirm-modal .btn-rc-cancel:hover { border-color:#206efb; color:#206efb; }
+  .roots-confirm-modal .btn-rc-ok { padding:.7rem 1.35rem; border:none; border-radius:10px; font-family:inherit; font-weight:600; font-size:.875rem; color:#fff; background:#dc2626; cursor:pointer; transition:opacity .15s; }
+  .roots-confirm-modal .btn-rc-ok:hover { opacity:.88; }
   .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
   .modal-header h3 { margin: 0; font-size: 1.2rem; color: var(--c-text); }
   .close-modal { font-size: 1.5rem; cursor: pointer; color: var(--c-text-muted); transition: color 0.2s; }
@@ -2050,8 +2059,31 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeHistoryDetail();
 });
 
+
+function imgConfirm() {
+  return new Promise(resolve => {
+    const overlay = document.getElementById('modal-img-delete-confirm');
+    if (!overlay) { resolve(window.confirm('Bild löschen?')); return; }
+    overlay.classList.add('open');
+    const ok     = document.getElementById('btn-img-delete-ok');
+    const cancel = document.getElementById('btn-img-delete-cancel');
+    const onOk     = () => { cleanup(); resolve(true); };
+    const onCancel = () => { cleanup(); resolve(false); };
+    const onKey    = e => { if (e.key === 'Escape') { cleanup(); resolve(false); } };
+    function cleanup() {
+      overlay.classList.remove('open');
+      ok.removeEventListener('click', onOk);
+      cancel.removeEventListener('click', onCancel);
+      document.removeEventListener('keydown', onKey);
+    }
+    ok.addEventListener('click', onOk);
+    cancel.addEventListener('click', onCancel);
+    document.addEventListener('keydown', onKey);
+  });
+}
+
 window.deleteHistoryItem = async function(id, btn) {
-    if (!confirm('Dieses Bild aus dem Verlauf löschen?')) return;
+    if (!(await imgConfirm())) return;
     const orig = btn.innerHTML;
     btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
     try {
@@ -2420,5 +2452,20 @@ window.RootsUser = window.RootsUser || {
   </div>
 </div>
 
+
+<!-- ── Delete Confirm Modal ── -->
+<div class="modal-overlay roots-confirm-modal" id="modal-img-delete-confirm" aria-hidden="true">
+  <div class="modal-box" role="dialog" style="max-width:360px">
+    <div class="modal-body">
+      <div class="modal-icon danger"><i class="fa-solid fa-trash"></i></div>
+      <strong style="font-size:1rem;display:block;margin-bottom:.45rem;color:var(--c-text,#1e293b)">Bild löschen?</strong>
+      <p>Das Bild wird dauerhaft aus dem Verlauf entfernt. Diese Aktion kann nicht rückgängig gemacht werden.</p>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn-rc-cancel" id="btn-img-delete-cancel">Abbrechen</button>
+      <button type="button" class="btn-rc-ok" id="btn-img-delete-ok"><i class="fa-solid fa-trash"></i> Löschen</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
