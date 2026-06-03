@@ -1079,11 +1079,12 @@
     try {
       await callImageFunction('save_google_api_key', { apiKey });
       if (input) input.value = '';
-      toast('Google API-Key gespeichert.', 'success');
+      // Modal schließen BEVOR toast — dann ist toast sichtbar
+      closeImageAiSettings();
+      toast('Google API-Key gespeichert ✓ Bildgenerierung ist jetzt aktiv.', 'success');
     } catch (error) {
       toast(error.message || 'Fehler beim Speichern.', 'error');
-    } finally {
-      if (btn) { btn.disabled = false; btn.innerHTML = original || '<i class="fa-solid fa-floppy-disk"></i> Einstellungen speichern'; }
+      if (btn) { btn.disabled = false; btn.innerHTML = original || '<i class="fa-solid fa-vault"></i> Sicher speichern'; }
     }
   };
 
@@ -1442,15 +1443,17 @@
       modalStatus.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i><span>Status wird geladen…</span>';
     }
     try {
-      // Warten bis Supabase-Session bereit ist
-      const sb = window.RootsUser?._sb;
+      // Supabase-Client: RootsUser._sb oder globaler Client als Fallback
+      const sb = window.RootsUser?._sb || window.__rootsSupabaseClient;
       if (!sb) {
-        if (modalStatus) modalStatus.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i><span>Warte auf Anmeldung…</span>';
+        // Noch nicht bereit → kurz warten und nochmal versuchen
+        setTimeout(refreshImageAiSettingsStatus, 800);
         return;
       }
       const { data: { session } } = await sb.auth.getSession();
       if (!session) {
-        if (modalStatus) modalStatus.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i><span>Bitte anmelden</span>';
+        // Session noch nicht da → warten
+        setTimeout(refreshImageAiSettingsStatus, 800);
         return;
       }
       const result = await callImageFunction('settings_status');
