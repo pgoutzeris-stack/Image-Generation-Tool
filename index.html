@@ -2122,7 +2122,7 @@ window.deleteHistoryItem = async function(id, btn) {
   const IN_IFRAME = window.parent !== window;
   let _authDone = false;
   function _onSession(session){
-    if(session){_authDone=true;overlay.style.display='none';window.RootsUser._loadAndMount(sb);}
+    if(session){_authDone=true;overlay.style.display='none';if(window.RootsUser)window.RootsUser._loadAndMount(sb);}
   }
   sb.auth.onAuthStateChange((event,session)=>{
     if(session){_onSession(session);}
