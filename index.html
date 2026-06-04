@@ -2110,7 +2110,6 @@ window.deleteHistoryItem = async function(id, btn) {
   const SUPABASE_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNzbWd1d2N2enJlZWZsdWhhaHl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5NjM0ODcsImV4cCI6MjA5MjUzOTQ4N30.Fiafx7XBaQZXUX3bKQIBH7znBHx3B51yL-bftOHsL4Q';
   const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
   window.__rootsSupabaseClient = sb;
-window.RootsUser = window.RootsUser || { _loadAndMount: async () => {}, _mount: () => {} }; // Bridge: Session-Sync vom Intranet
   if (window.RootsUser) { window.RootsUser._sb = sb; window.RootsUser._loadAndMount(sb); }
   const overlay=document.getElementById('roots-auth-overlay');
   const vLogin=document.getElementById('roots-view-login');
