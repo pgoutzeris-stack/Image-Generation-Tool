@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://pgoutzeris-stack.github.io; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.cdnfonts.com; font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.cdnfonts.com; img-src 'self' data: blob: https:; connect-src 'self' https://csmguwcvzreefluhahyu.supabase.co wss://csmguwcvzreefluhahyu.supabase.co; form-action 'self'; media-src 'self' blob: data:; worker-src 'self' blob:; upgrade-insecure-requests">
+  <meta name="referrer" content="no-referrer">
   
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -746,8 +748,9 @@
   .history-card-btn:hover { background:var(--brand,#206efb); color:#fff; border-color:var(--brand,#206efb); }
   .history-card-btn.danger:hover { background:#ef4444; border-color:#ef4444; }
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://pgoutzeris-stack.github.io/ROOTS_Intranet/roots-user-bridge.js?v=20260601-final"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.8"></script>
+  <script>window.ROOTS_TOKENLESS_EMBED = window.parent !== window && new URLSearchParams(window.location.search).get('authBroker') === 'v1';</script>
+<script src="https://pgoutzeris-stack.github.io/ROOTS_Intranet/roots-user-bridge.js?v=20260722-tokenless-broker-v1"></script>
 </head>
 <body>
 
@@ -1455,51 +1458,48 @@
   }
 
   async function callImageFunction(action, body = {}) {
-    // __rootsSupabaseClient wird im inline-Script gesetzt und ist immer verfügbar
-    const sb = window.__rootsSupabaseClient || window.RootsUser?._sb;
-    if (!sb) throw new Error('Kein Supabase-Client verfügbar');
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session) throw new Error('Nicht angemeldet — bitte Seite neu laden');
+    let raw;
+    if (window.parent !== window && window.RootsUserBridge?.TOKENLESS_EMBED) {
+      raw = await window.RootsUserBridge.request('image-generation', { action, ...body });
+    } else {
+      const sb = window.__rootsSupabaseClient || window.RootsUser?._sb;
+      if (!sb) throw new Error('Kein Supabase-Client verfügbar');
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session) throw new Error('Nicht angemeldet — bitte Seite neu laden');
 
-    const resp = await fetch(IMAGE_FUNCTION_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`
-      },
-      body: JSON.stringify({ action, ...body })
-    });
+      const resp = await fetch(IMAGE_FUNCTION_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ action, ...body })
+      });
 
-    if (!resp.ok) {
-      let errMsg = `HTTP ${resp.status}`;
-      try {
-        const errData = await resp.json();
-        // Google-Fehler oder Edge-Fehler
-        errMsg = errData?.error?.message || errData?.error?.error?.message
-               || errData?.error || errMsg;
-        if (resp.status === 503) errMsg = 'Google API-Key nicht hinterlegt — bitte in KI-Einstellungen speichern';
-        if (resp.status === 401) errMsg = 'Nicht angemeldet — bitte Seite neu laden';
-      } catch {}
-      throw new Error(errMsg);
+      if (!resp.ok) {
+        let errMsg = `HTTP ${resp.status}`;
+        try {
+          const errData = await resp.json();
+          errMsg = errData?.error?.message || errData?.error?.error?.message
+            || errData?.error || errMsg;
+          if (resp.status === 503) errMsg = 'Google API-Key nicht hinterlegt — bitte in KI-Einstellungen speichern';
+          if (resp.status === 401) errMsg = 'Nicht angemeldet — bitte Seite neu laden';
+        } catch {}
+        throw new Error(errMsg);
+      }
+      raw = await resp.json();
     }
 
-    const raw = await resp.json();
-
-    // Nur generate_image liefert Google-Bildformat — andere Actions direkt zurückgeben
     if (action !== 'generate_image') return raw;
-
-    // Google Gemini Format: candidates[0].content.parts[*].inlineData
     const parts = raw?.candidates?.[0]?.content?.parts ?? [];
     const imgPart = parts.find(p => p?.inlineData?.data);
     if (imgPart) {
       return {
         imageData: imgPart.inlineData.data,
-        mimeType:  imgPart.inlineData.mimeType || 'image/png',
+        mimeType: imgPart.inlineData.mimeType || 'image/png',
         raw
       };
     }
-
-    // Kein Bild — konkreten Google-Fehler extrahieren
     const finishReason = raw?.candidates?.[0]?.finishReason;
     const googleErr = raw?.error?.message;
     const errText = googleErr || (finishReason && finishReason !== 'STOP' ? `Abgebrochen (${finishReason})` : null)
@@ -2108,58 +2108,106 @@ window.deleteHistoryItem = async function(id, btn) {
 (function(){
   const SUPABASE_URL='https://csmguwcvzreefluhahyu.supabase.co';
   const SUPABASE_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNzbWd1d2N2enJlZWZsdWhhaHl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5NjM0ODcsImV4cCI6MjA5MjUzOTQ4N30.Fiafx7XBaQZXUX3bKQIBH7znBHx3B51yL-bftOHsL4Q';
-  const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
-  window.__rootsSupabaseClient = sb;
-  if (window.RootsUser) { window.RootsUser._sb = sb; window.RootsUser._loadAndMount(sb); }
+  const IN_IFRAME = window.parent !== window;
+  const TOKENLESS_EMBED = IN_IFRAME && window.ROOTS_TOKENLESS_EMBED === true;
   const overlay=document.getElementById('roots-auth-overlay');
   const vLogin=document.getElementById('roots-view-login');
   const vForgot=document.getElementById('roots-view-forgot');
+  let _authDone = false;
+
   function resetLoginUi(){
     document.getElementById('roots-error-banner').classList.remove('visible');
     document.getElementById('roots-login-btn').disabled=false;
     document.getElementById('roots-login-btn').innerHTML='<i class="fa-solid fa-arrow-right-to-bracket"></i> Anmelden';
   }
-  const IN_IFRAME = window.parent !== window;
-  let _authDone = false;
-  function _onSession(session){
-    if(session){_authDone=true;overlay.style.display='none';if(window.RootsUser)window.RootsUser._loadAndMount(sb);}
-  }
-  sb.auth.onAuthStateChange((event,session)=>{
-    if(session){_onSession(session);}
-    else if(event==='SIGNED_OUT'){overlay.style.display='flex';}
-  });
-  // Bridge meldet Session vom Intranet
-  window.addEventListener('roots-auth-ready',(e)=>{ if(e.detail?.session) _onSession(e.detail.session); });
-  // Initiale Session prüfen
-  sb.auth.getSession().then(({data:{session}})=>{
-    if(session){_onSession(session);}
-    else if(!IN_IFRAME){overlay.style.display='flex';}
-    else {
-      // iframe: warte auf Bridge-Sync, zeige Login nur wenn nach 2.5s nichts kam
-      setTimeout(()=>{ if(!_authDone){ sb.auth.getSession().then(({data:{session:s2}})=>{ if(!_authDone&&!s2) overlay.style.display='flex'; }); } }, 2500);
+
+  async function bootTokenlessEmbed() {
+    try {
+      const context = await window.RootsUserBridge.request('user-context', {}, 15000);
+      if (!context?.user?.id || !context?.profile) throw new Error('Ungültiger Benutzerkontext');
+      _authDone = true;
+      overlay.style.display='none';
+      if (window.RootsUser) {
+        window.RootsUser._sb = null;
+        window.RootsUser._uid = context.user.id;
+        window.RootsUser._p = context.profile;
+        window.RootsUser._mount?.();
+      }
+      window.dispatchEvent(new CustomEvent('roots-broker-context-ready', { detail: context }));
+    } catch (error) {
+      overlay.style.display='flex';
+      const errorText = document.getElementById('roots-error-text');
+      if (errorText) errorText.textContent = 'Intranet-Sitzung nicht verfügbar — bitte im Hauptfenster neu anmelden.';
+      document.getElementById('roots-error-banner')?.classList.add('visible');
     }
-  });
-  document.getElementById('roots-login-form').addEventListener('submit',async(e)=>{
+  }
+
+  if (TOKENLESS_EMBED) {
+    window.__rootsSupabaseClient = null;
+    void bootTokenlessEmbed();
+    window.addEventListener('roots-auth-signed-out', () => {
+      _authDone = false;
+      overlay.style.display='flex';
+    });
+    window.addEventListener('roots-broker-context-ready', (event) => {
+      const context = event.detail;
+      if (!context?.user?.id || !context?.profile || !window.RootsUser) return;
+      _authDone = true;
+      overlay.style.display='none';
+      window.RootsUser._uid = context.user.id;
+      window.RootsUser._p = context.profile;
+      window.RootsUser._mount?.();
+    });
+  } else {
+    const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
+    window.__rootsSupabaseClient = sb;
+    if (window.RootsUser) { window.RootsUser._sb = sb; window.RootsUser._loadAndMount(sb); }
+
+    function onSession(session){
+      if(session){_authDone=true;overlay.style.display='none';if(window.RootsUser)window.RootsUser._loadAndMount(sb);}
+    }
+    sb.auth.onAuthStateChange((event,session)=>{
+      if(session){onSession(session);}
+      else if(event==='SIGNED_OUT'){overlay.style.display='flex';}
+    });
+    sb.auth.getSession().then(({data:{session}})=>{
+      if(session) onSession(session);
+      else overlay.style.display='flex';
+    });
+
+    document.getElementById('roots-login-form').addEventListener('submit',async(e)=>{
+      e.preventDefault();
+      const email=document.getElementById('roots-email').value.trim();
+      const password=document.getElementById('roots-password').value;
+      const btn=document.getElementById('roots-login-btn');
+      const errEl=document.getElementById('roots-error-banner');
+      btn.disabled=true;btn.innerHTML='<i class="fa-solid fa-circle-notch roots-spin"></i> Anmelden…';
+      errEl.classList.remove('visible');
+      const{error}=await sb.auth.signInWithPassword({email,password});
+      if(error){errEl.classList.add('visible');document.getElementById('roots-error-text').textContent=error.message;btn.disabled=false;btn.innerHTML='<i class="fa-solid fa-arrow-right-to-bracket"></i> Anmelden';}
+    });
+    document.getElementById('roots-forgot-form').addEventListener('submit',async(e)=>{
+      e.preventDefault();
+      const email=document.getElementById('roots-reset-email').value.trim();
+      const btn=document.getElementById('roots-reset-btn');
+      const errEl=document.getElementById('roots-reset-error');
+      const okEl=document.getElementById('roots-reset-success');
+      btn.disabled=true;errEl.classList.remove('visible');okEl.classList.remove('visible');
+      const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:window.location.href});
+      if(error){errEl.classList.add('visible');document.getElementById('roots-reset-error-text').textContent=error.message;btn.disabled=false;}
+      else{okEl.classList.add('visible');btn.disabled=false;}
+    });
+  }
+
+  document.getElementById('roots-login-form').addEventListener('submit',(e)=>{
+    if (!TOKENLESS_EMBED) return;
     e.preventDefault();
-    const email=document.getElementById('roots-email').value.trim();
-    const password=document.getElementById('roots-password').value;
-    const btn=document.getElementById('roots-login-btn');
-    const errEl=document.getElementById('roots-error-banner');
-    btn.disabled=true;btn.innerHTML='<i class="fa-solid fa-circle-notch roots-spin"></i> Anmelden…';
-    errEl.classList.remove('visible');
-    const{error}=await sb.auth.signInWithPassword({email,password});
-    if(error){errEl.classList.add('visible');document.getElementById('roots-error-text').textContent=error.message;btn.disabled=false;btn.innerHTML='<i class="fa-solid fa-arrow-right-to-bracket"></i> Anmelden';}
+    document.getElementById('roots-error-banner')?.classList.add('visible');
+    const errorText = document.getElementById('roots-error-text');
+    if (errorText) errorText.textContent='Bitte im ROOTS Intranet anmelden.';
   });
-  document.getElementById('roots-forgot-form').addEventListener('submit',async(e)=>{
-    e.preventDefault();
-    const email=document.getElementById('roots-reset-email').value.trim();
-    const btn=document.getElementById('roots-reset-btn');
-    const errEl=document.getElementById('roots-reset-error');
-    const okEl=document.getElementById('roots-reset-success');
-    btn.disabled=true;errEl.classList.remove('visible');okEl.classList.remove('visible');
-    const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:window.location.href});
-    if(error){errEl.classList.add('visible');document.getElementById('roots-reset-error-text').textContent=error.message;btn.disabled=false;}
-    else{okEl.classList.add('visible');btn.disabled=false;}
+  document.getElementById('roots-forgot-form').addEventListener('submit',(e)=>{
+    if (TOKENLESS_EMBED) e.preventDefault();
   });
   document.getElementById('roots-go-forgot').addEventListener('click',()=>{vLogin.style.display='none';vForgot.style.display='block';});
   document.getElementById('roots-go-login').addEventListener('click',()=>{vForgot.style.display='none';vLogin.style.display='block';resetLoginUi();});
