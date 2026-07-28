@@ -1899,19 +1899,23 @@
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': sb.supabaseKey
         },
         body: JSON.stringify({ action, ...body })
       });
 
       if (!resp.ok) {
-        let errMsg = `HTTP ${resp.status}`;
+        const errorCode = resp.headers.get('sb-error-code');
+        let errMsg = errorCode ? `Image-Funktion: ${errorCode}` : `HTTP ${resp.status}`;
         try {
           const errData = await resp.json();
           errMsg = errData?.error?.message || errData?.error?.error?.message
-            || errData?.error || errMsg;
+            || errData?.error || errData?.message || errMsg;
           if (resp.status === 503) errMsg = 'Google API-Key nicht hinterlegt — bitte in KI-Einstellungen speichern';
-          if (resp.status === 401) errMsg = 'Nicht angemeldet — bitte Seite neu laden';
+          if (resp.status === 401 && !errData?.error?.message && !errData?.message) {
+            errMsg = 'Nicht angemeldet — bitte Seite neu laden';
+          }
         } catch {}
         throw new Error(errMsg);
       }
