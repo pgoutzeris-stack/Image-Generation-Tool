@@ -124,7 +124,7 @@
   }
 
   .card-top { 
-    height: 430px; 
+    height: 500px;
     flex: 0 0 auto; 
   }
   .card-bottom { 
@@ -476,16 +476,15 @@
   .reference-action-copy span { font-size: .69rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .reference-action.has-reference .reference-action-copy span { color: #15803d; }
 
-  .reference-modal { width: min(760px, 94vw); max-width: 760px; max-height: 88vh; overflow-y: auto; }
-  .reference-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .reference-modal { width: min(500px, 94vw); max-width: 500px; max-height: 88vh; overflow-y: auto; }
   .reference-card { min-width: 0; }
   .reference-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; color: var(--ink); }
   .reference-card-head i { color: var(--brand); }
   .reference-card-head strong { font-size: .9rem; }
   .reference-card-head span { margin-left: auto; font-size: .65rem; font-weight: 700; color: var(--muted); text-transform: uppercase; }
-  .reference-grid .drop-zone { min-height: 245px; padding: 25px 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-  .reference-grid .drop-zone p { font-size: .86rem; line-height: 1.45; }
-  .reference-grid .drop-zone img { max-height: 190px; }
+  .reference-modal .drop-zone { min-height: 245px; padding: 25px 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .reference-modal .drop-zone p { font-size: .86rem; line-height: 1.45; }
+  .reference-modal .drop-zone img { max-height: 190px; }
   .reference-note { margin: 10px 0 0; font-size: .72rem; color: var(--muted); line-height: 1.45; }
   .logo-placement-summary { display: none; align-items: center; gap: 7px; margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: #f8fafc; color: var(--muted); font-size: .73rem; }
   .logo-placement-summary.visible { display: flex; }
@@ -536,7 +535,7 @@
   .btn-improve-prompt:disabled { opacity: .6; cursor: wait; }
 
   @media (max-width: 700px) {
-    .reference-grid, .style-editor-layout { grid-template-columns: 1fr; }
+    .style-editor-layout { grid-template-columns: 1fr; }
     .reference-actions { grid-template-columns: 1fr; }
     .style-editor-layout { gap: 10px; }
     .placement-options { grid-template-columns: 1fr 1fr; }
@@ -907,54 +906,62 @@
   </div>
 </div>
 
-<div id="modal-dropzone" class="modal-overlay">
-  <div class="modal-content reference-modal" role="dialog" aria-modal="true" aria-labelledby="reference-modal-title">
+<div id="modal-style-reference" class="modal-overlay">
+  <div class="modal-content reference-modal" role="dialog" aria-modal="true" aria-labelledby="style-reference-modal-title">
     <div class="modal-header">
-      <h3 id="reference-modal-title">Bild- und Logo-Referenzen</h3>
-      <i class="fa-solid fa-xmark close-modal" onclick="closeDropzoneModal()" title="Schließen"></i>
+      <h3 id="style-reference-modal-title">Bildstil-Referenz</h3>
+      <i class="fa-solid fa-xmark close-modal" onclick="closeReferenceModal('style')" title="Schließen"></i>
     </div>
-    <div class="reference-grid">
-      <div class="reference-card">
-        <div class="reference-card-head">
-          <i class="fa-solid fa-wand-magic-sparkles"></i>
-          <strong>Bildstil-Referenz</strong>
-          <span>Optional</span>
-        </div>
-        <div id="style-drop-zone" class="drop-zone">
-          <i id="style-drop-icon" class="fa-solid fa-image"></i>
-          <p id="style-drop-text">Bild ablegen oder auswählen</p>
-          <input type="file" id="style-file-input" accept="image/*" style="display:none;">
-          <img id="style-drop-preview" src="" style="display:none;" alt="Bildstil-Referenz">
-          <button id="btn-remove-style-ref" class="btn-remove-ref" title="Stilreferenz entfernen">
-            <i class="fa-solid fa-xmark"></i>
-          </button>
-        </div>
-        <p class="reference-note">Übernimmt Farbwelt, Licht, Materialität und Bildsprache. Motiv und Text werden nicht kopiert.</p>
+    <div class="reference-card">
+      <div class="reference-card-head">
+        <i class="fa-solid fa-wand-magic-sparkles"></i>
+        <strong>Stilvorlage auswählen</strong>
+        <span>Optional</span>
       </div>
-      <div class="reference-card">
-        <div class="reference-card-head">
-          <i class="fa-solid fa-certificate"></i>
-          <strong>Logo-Referenz</strong>
-          <span>Optional</span>
-        </div>
-        <div id="logo-drop-zone" class="drop-zone">
-          <i id="logo-drop-icon" class="fa-solid fa-stamp"></i>
-          <p id="logo-drop-text">Logo ablegen oder auswählen</p>
-          <input type="file" id="logo-file-input" accept="image/*" style="display:none;">
-          <img id="logo-drop-preview" src="" style="display:none;" alt="Logo-Referenz">
-          <button id="btn-remove-logo-ref" class="btn-remove-ref" title="Logoreferenz entfernen">
-            <i class="fa-solid fa-xmark"></i>
-          </button>
-        </div>
-        <div id="logo-placement-summary" class="logo-placement-summary">
-          <i class="fa-solid fa-location-dot"></i>
-          <span id="logo-placement-summary-text">Unten rechts</span>
-          <button type="button" onclick="openLogoPlacementModal()">Ändern</button>
-        </div>
-        <p class="reference-note">Das hochgeladene Logo wird als Originalvorlage behandelt und nicht neu gestaltet.</p>
+      <div id="style-drop-zone" class="drop-zone">
+        <i id="style-drop-icon" class="fa-solid fa-image"></i>
+        <p id="style-drop-text">Bild ablegen oder auswählen</p>
+        <input type="file" id="style-file-input" accept="image/*" style="display:none;">
+        <img id="style-drop-preview" src="" style="display:none;" alt="Bildstil-Referenz">
+        <button id="btn-remove-style-ref" class="btn-remove-ref" title="Stilreferenz entfernen">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
       </div>
+      <p class="reference-note">Übernimmt Farbwelt, Licht, Materialität und Bildsprache. Motiv und Text werden nicht kopiert.</p>
     </div>
-    <button class="btn-primary" style="margin-top: 20px;" onclick="closeDropzoneModal()">Übernehmen</button>
+    <button class="btn-primary" style="margin-top:20px" onclick="closeReferenceModal('style')">Stilreferenz übernehmen</button>
+  </div>
+</div>
+
+<div id="modal-logo-reference" class="modal-overlay">
+  <div class="modal-content reference-modal" role="dialog" aria-modal="true" aria-labelledby="logo-reference-modal-title">
+    <div class="modal-header">
+      <h3 id="logo-reference-modal-title">Logo-Referenz</h3>
+      <i class="fa-solid fa-xmark close-modal" onclick="closeReferenceModal('logo')" title="Schließen"></i>
+    </div>
+    <div class="reference-card">
+      <div class="reference-card-head">
+        <i class="fa-solid fa-certificate"></i>
+        <strong>Logo auswählen</strong>
+        <span>Optional</span>
+      </div>
+      <div id="logo-drop-zone" class="drop-zone">
+        <i id="logo-drop-icon" class="fa-solid fa-stamp"></i>
+        <p id="logo-drop-text">Logo ablegen oder auswählen</p>
+        <input type="file" id="logo-file-input" accept="image/*" style="display:none;">
+        <img id="logo-drop-preview" src="" style="display:none;" alt="Logo-Referenz">
+        <button id="btn-remove-logo-ref" class="btn-remove-ref" title="Logoreferenz entfernen">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div id="logo-placement-summary" class="logo-placement-summary">
+        <i class="fa-solid fa-location-dot"></i>
+        <span id="logo-placement-summary-text">Unten rechts</span>
+        <button type="button" onclick="openLogoPlacementModal()">Ändern</button>
+      </div>
+      <p class="reference-note">Das Logo wird als Originalvorlage behandelt. Nach der Auswahl legst du seine Position fest.</p>
+    </div>
+    <button class="btn-primary" style="margin-top:20px" onclick="closeReferenceModal('logo')">Logo übernehmen</button>
   </div>
 </div>
 
@@ -1143,14 +1150,14 @@
             </div>
         </div>
         <div class="reference-actions">
-          <button type="button" id="style-reference-action" class="reference-action" onclick="openDropzoneModal('style')" title="Bildstil-Referenz wählen">
+          <button type="button" id="style-reference-action" class="reference-action" onclick="openReferenceModal('style')" title="Bildstil-Referenz wählen">
             <i class="fa-regular fa-image"></i>
             <span class="reference-action-copy">
               <strong>Stilreferenz</strong>
               <span id="style-reference-label">Keine ausgewählt</span>
             </span>
           </button>
-          <button type="button" id="logo-reference-action" class="reference-action" onclick="openDropzoneModal('logo')" title="Logo-Referenz wählen">
+          <button type="button" id="logo-reference-action" class="reference-action" onclick="openReferenceModal('logo')" title="Logo-Referenz wählen">
             <i class="fa-solid fa-certificate"></i>
             <span class="reference-action-copy">
               <strong>Logo</strong>
@@ -1354,16 +1361,14 @@
     link.click();
   }
 
-  function openDropzoneModal(focus = '') {
-    document.getElementById('modal-dropzone').style.display = 'flex';
-    requestAnimationFrame(() => {
-      const target = document.getElementById(focus === 'logo' ? 'logo-drop-zone' : 'style-drop-zone');
-      if (focus && target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    });
+  function openReferenceModal(kind) {
+    const modal = document.getElementById(`modal-${kind}-reference`);
+    if (modal) modal.style.display = 'flex';
   }
 
-  function closeDropzoneModal() {
-    document.getElementById('modal-dropzone').style.display = 'none';
+  function closeReferenceModal(kind) {
+    const modal = document.getElementById(`modal-${kind}-reference`);
+    if (modal) modal.style.display = 'none';
   }
 
   function openImageAiSettings() {
@@ -1453,7 +1458,10 @@
       if (kind === 'style') styleReference = reference;
       else logoReference = reference;
       updateReferenceUi(kind);
-      if (kind === 'logo') openLogoPlacementModal();
+      if (kind === 'logo') {
+        closeReferenceModal('logo');
+        openLogoPlacementModal();
+      }
       toast(kind === 'style' ? 'Stilreferenz übernommen.' : 'Logoreferenz übernommen.', 'success');
     } catch (error) {
       toast(error.message || 'Bild konnte nicht verarbeitet werden.', 'error');
@@ -1529,7 +1537,7 @@
 
   function openLogoPlacementModal() {
     if (!logoReference) {
-      openDropzoneModal('logo');
+      openReferenceModal('logo');
       toast('Bitte zuerst ein Logo auswählen.', 'info');
       return;
     }
