@@ -154,13 +154,28 @@ Deno.serve(async (req: Request) => {
     const adminUser = await isAdmin();
     let query = admin
       .from("image_gen_history")
-      .select("id,user_id,user_name,user_email,prompt,model_id,model_label,aspect,style_id,image_data,mime_type,created_at")
+      .select("id,user_id,user_name,user_email,prompt,model_id,model_label,aspect,style_id,mime_type,created_at")
       .order("created_at", { ascending: false })
       .limit(limit);
     if (!adminUser) query = query.eq("user_id", authenticatedUser.id);
     const { data, error } = await query;
     if (error) return errorResponse(error.message, 500);
     return jsonResponse({ history: data || [] });
+  }
+
+  if (action === "get_history_image") {
+    const itemId = String(body.id ?? "");
+    if (!itemId) return errorResponse("id required", 400);
+    const adminUser = await isAdmin();
+    let query = admin
+      .from("image_gen_history")
+      .select("image_data,mime_type")
+      .eq("id", itemId);
+    if (!adminUser) query = query.eq("user_id", authenticatedUser.id);
+    const { data, error } = await query.maybeSingle();
+    if (error) return errorResponse(error.message, 500);
+    if (!data?.image_data) return errorResponse("Bild nicht gefunden.", 404);
+    return jsonResponse({ image: data });
   }
 
   if (action === "delete_history_item") {

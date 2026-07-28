@@ -2306,6 +2306,78 @@
   }
 
   // ── History laden ─────────────────────────────────────────────────────────
+  const historyImageCache = new Map();
+  const historyImageRequests = new Map();
+  let historyImageObserver = null;
+  let activeHistoryDetailId = null;
+
+  async function fetchHistoryImage(id) {
+    if (historyImageCache.has(id)) return historyImageCache.get(id);
+    if (historyImageRequests.has(id)) return historyImageRequests.get(id);
+
+    const request = callImageFunction('get_history_image', { id })
+      .then(data => {
+        const image = data?.image;
+        if (!image?.image_data) throw new Error('Keine Bilddaten verfügbar.');
+        const result = {
+          image_data: image.image_data,
+          mime_type: image.mime_type || 'image/png'
+        };
+        historyImageCache.set(id, result);
+        return result;
+      })
+      .finally(() => historyImageRequests.delete(id));
+
+    historyImageRequests.set(id, request);
+    return request;
+  }
+
+  async function hydrateHistoryImage(card) {
+    if (!card || card.dataset.imageLoading === 'true' || card.querySelector('img.history-card-img')) return;
+    const id = card.dataset.historyId;
+    const placeholder = card.querySelector('[data-history-image]');
+    if (!id || !placeholder) return;
+    card.dataset.imageLoading = 'true';
+
+    try {
+      const image = await fetchHistoryImage(id);
+      if (!card.isConnected) return;
+      const data = JSON.parse(card.dataset.historyData || '{}');
+      const aspectClass = data.aspect === '16:9' ? 'aspect-16-9' : data.aspect === '9:16' ? 'aspect-9-16' : '';
+      const img = document.createElement('img');
+      img.className = `history-card-img ${aspectClass}`;
+      img.src = `data:${image.mime_type};base64,${image.image_data}`;
+      img.alt = data.prompt || 'Generiertes Bild';
+      img.loading = 'lazy';
+      img.addEventListener('click', () => openLightbox(img.src));
+      placeholder.replaceWith(img);
+    } catch (error) {
+      if (placeholder.isConnected) {
+        placeholder.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="font-size:1.4rem;color:#ef4444"></i>';
+        placeholder.title = error.message || 'Bild konnte nicht geladen werden.';
+      }
+    } finally {
+      delete card.dataset.imageLoading;
+    }
+  }
+
+  function observeHistoryImages(grid) {
+    historyImageObserver?.disconnect();
+    const cards = Array.from(grid.querySelectorAll('.history-card'));
+    if (!('IntersectionObserver' in window)) {
+      cards.slice(0, 12).forEach(card => hydrateHistoryImage(card));
+      return;
+    }
+    historyImageObserver = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        historyImageObserver.unobserve(entry.target);
+        hydrateHistoryImage(entry.target);
+      });
+    }, { rootMargin: '320px 0px' });
+    cards.forEach(card => historyImageObserver.observe(card));
+  }
+
   async function loadHistory() {
     const grid  = document.getElementById('history-grid');
     const empty = document.getElementById('history-empty');
@@ -2333,6 +2405,7 @@
         const card = buildHistoryCard(item);
         grid.appendChild(card);
       });
+      observeHistoryImages(grid);
     } catch (e) {
       grid.innerHTML = `<div class="history-empty"><i class="fa-solid fa-triangle-exclamation" style="font-size:1.5rem;color:#ef4444"></i><p>Fehler beim Laden: ${e.message}</p></div>`;
     }
@@ -2344,13 +2417,7 @@
     const date = new Date(item.created_at).toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' });
     const aspectClass = item.aspect === '16:9' ? 'aspect-16-9' : item.aspect === '9:16' ? 'aspect-9-16' : '';
 
-    let imgHtml = '';
-    if (item.image_data) {
-      const mime = item.mime_type || 'image/png';
-      imgHtml = `<img class="history-card-img ${aspectClass}" src="data:${mime};base64,${item.image_data}" alt="${escapeHtml(item.prompt)}" loading="lazy" />`;
-    } else {
-      imgHtml = `<div class="history-card-img ${aspectClass}" style="display:flex;align-items:center;justify-content:center;background:#f1f5f9"><i class="fa-solid fa-image" style="font-size:2rem;color:#94a3b8"></i></div>`;
-    }
+    const imgHtml = `<div class="history-card-img ${aspectClass}" data-history-image="${item.id}" style="display:flex;align-items:center;justify-content:center;background:#f1f5f9"><i class="fa-solid fa-circle-notch fa-spin" style="font-size:1.3rem;color:#94a3b8"></i></div>`;
 
     const promptShort = item.prompt.length > 120 ? item.prompt.slice(0,119)+'…' : item.prompt;
 
@@ -2383,11 +2450,9 @@
     card.dataset.historyId = item.id;
     card.dataset.historyData = JSON.stringify({
       prompt: item.prompt, model_id: item.model_id, model_label: item.model_label || item.model_id,
-      aspect: item.aspect, style_id: item.style_id, image_data: item.image_data,
+      aspect: item.aspect, style_id: item.style_id,
       mime_type: item.mime_type, user_name: item.user_name, created_at: item.created_at
     });
-    const historyImage = card.querySelector('img.history-card-img');
-    historyImage?.addEventListener('click', () => openLightbox(historyImage.src));
     return card;
   }
 
@@ -2395,18 +2460,20 @@
     return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  window.downloadHistoryImage = function(id) {
+  window.downloadHistoryImage = async function(id) {
     const card = document.querySelector(`[data-history-id="${id}"]`);
     if (!card) return;
-    const data = JSON.parse(card.dataset.historyData || '{}');
-    if (!data.image_data) { toast('Keine Bilddaten verfügbar.', 'error'); return; }
-    const mime = data.mime_type || 'image/png';
-    const ext  = mime.includes('png') ? 'png' : 'jpg';
-    const link = document.createElement('a');
-    link.href     = `data:${mime};base64,${data.image_data}`;
-    link.download = `nanobana-${id.slice(0,8)}.${ext}`;
-    link.click();
-    toast('Bild wird heruntergeladen…', 'success');
+    try {
+      const image = await fetchHistoryImage(id);
+      const ext = image.mime_type.includes('png') ? 'png' : image.mime_type.includes('webp') ? 'webp' : 'jpg';
+      const link = document.createElement('a');
+      link.href = `data:${image.mime_type};base64,${image.image_data}`;
+      link.download = `nanobana-${id.slice(0,8)}.${ext}`;
+      link.click();
+      toast('Bild wird heruntergeladen…', 'success');
+    } catch (error) {
+      toast('Bild konnte nicht geladen werden: ' + error.message, 'error');
+    }
   };
 
   window.loadHistoryIntoForm = function(id) {
@@ -2452,11 +2519,12 @@
     toast('Einstellungen in Maske geladen ✓', 'success');
   };
 
-  window.openHistoryDetail = function(id, e) {
+  window.openHistoryDetail = async function(id, e) {
   if (e) e.stopPropagation();
   const card = document.querySelector(`[data-history-id="${id}"]`);
   if (!card) return;
   const data = JSON.parse(card.dataset.historyData || '{}');
+  activeHistoryDetailId = id;
   const date = data.created_at
     ? new Date(data.created_at).toLocaleDateString('de-DE', {day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'})
     : '—';
@@ -2464,13 +2532,9 @@
   // Header-Bild
   const hdpImg = document.getElementById('hdp-img');
   if (hdpImg) {
-    if (data.image_data) {
-      hdpImg.src = `data:${data.mime_type||'image/png'};base64,${data.image_data}`;
-      hdpImg.style.display = '';
-      hdpImg.onclick = () => openLightbox(hdpImg.src);
-    } else {
-      hdpImg.src = ''; hdpImg.style.display = 'none'; hdpImg.onclick = null;
-    }
+    hdpImg.src = '';
+    hdpImg.style.display = 'none';
+    hdpImg.onclick = null;
   }
 
   // Felder füllen
@@ -2492,9 +2556,21 @@
   // Panel öffnen
   document.getElementById('history-detail-overlay')?.classList.add('open');
   document.getElementById('history-detail-panel')?.classList.add('open');
+
+  try {
+    const image = await fetchHistoryImage(id);
+    if (activeHistoryDetailId === id && hdpImg) {
+      hdpImg.src = `data:${image.mime_type};base64,${image.image_data}`;
+      hdpImg.style.display = '';
+      hdpImg.onclick = () => openLightbox(hdpImg.src);
+    }
+  } catch (error) {
+    if (activeHistoryDetailId === id) toast('Bild konnte nicht geladen werden: ' + error.message, 'error');
+  }
 };
 
 window.closeHistoryDetail = function() {
+  activeHistoryDetailId = null;
   document.getElementById('history-detail-overlay')?.classList.remove('open');
   document.getElementById('history-detail-panel')?.classList.remove('open');
 };
@@ -2538,6 +2614,7 @@ window.deleteHistoryItem = async function(id, btn) {
     btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
     try {
       await callImageFunction('delete_history_item', { id });
+      historyImageCache.delete(id);
       const card = btn.closest('.history-card');
       if (card) card.remove();
       toast('Aus Verlauf gelöscht.', 'success');
