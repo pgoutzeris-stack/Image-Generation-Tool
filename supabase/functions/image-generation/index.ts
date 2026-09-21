@@ -114,6 +114,21 @@ Deno.serve(async (req: Request) => {
   const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false },
   });
+  async function logUsage(operation: string, model: string, parsed: Record<string, any>, ok: boolean, startedAt: number, imageCount = 0, errorCode?: string) {
+    const usage = parsed?.usageMetadata || {};
+    const cached = Number(usage.cachedContentTokenCount || 0);
+    const { error } = await admin.schema("shared").from("ai_provider_usage").insert({
+      app: "image-generation", operation, provider: "google", model,
+      status: ok ? "success" : "error", user_id: authenticatedUser.id,
+      input_tokens: Math.max(0, Number(usage.promptTokenCount || 0) - cached),
+      cached_input_tokens: cached,
+      output_tokens: Number(usage.candidatesTokenCount || 0),
+      thinking_tokens: Number(usage.thoughtsTokenCount || 0),
+      image_count: imageCount, duration_ms: Date.now() - startedAt,
+      error_code: errorCode || null,
+    });
+    if (error) throw new Error(`Usage tracking failed: ${error.message}`);
+  }
 
   async function isAdmin() {
     const { data } = await admin
@@ -200,6 +215,7 @@ Deno.serve(async (req: Request) => {
     }
     if (!apiKey) return errorResponse("Google API-Key nicht hinterlegt.", 503);
 
+    const improveStartedAt = Date.now();
     const improveResponse = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
       {
@@ -217,10 +233,12 @@ Deno.serve(async (req: Request) => {
       },
     );
     const improveText = await improveResponse.text();
+    let improveParsed: Record<string, any> = {};
+    try { improveParsed = JSON.parse(improveText); } catch { /* provider returned non-JSON */ }
+    await logUsage("improve_style_prompt", "gemini-2.5-flash", improveParsed, improveResponse.ok, improveStartedAt, 0, improveResponse.ok ? undefined : `http_${improveResponse.status}`);
     if (!improveResponse.ok) {
       try {
-        const parsed = JSON.parse(improveText);
-        return errorResponse(parsed?.error?.message || "Stilvorgabe konnte nicht verbessert werden.", improveResponse.status);
+        return errorResponse(improveParsed?.error?.message || "Stilvorgabe konnte nicht verbessert werden.", improveResponse.status);
       } catch {
         return errorResponse("Stilvorgabe konnte nicht verbessert werden.", improveResponse.status);
       }
@@ -283,6 +301,7 @@ Deno.serve(async (req: Request) => {
     parts.push({ inlineData: logoReference });
   }
 
+  const generationStartedAt = Date.now();
   const googleRes = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${encodeURIComponent(apiKey)}`,
     {
@@ -309,10 +328,15 @@ Deno.serve(async (req: Request) => {
   );
 
   const responseText = await googleRes.text();
+  let parsedResponse: Record<string, any> = {};
+  try { parsedResponse = JSON.parse(responseText); } catch { /* provider returned non-JSON */ }
+  const generatedImageCount = parsedResponse?.candidates?.[0]?.content?.parts?.filter(
+    (part: { inlineData?: { data?: string } }) => Boolean(part.inlineData?.data),
+  ).length || 0;
+  await logUsage("generate_image", modelId, parsedResponse, googleRes.ok, generationStartedAt, generatedImageCount, googleRes.ok ? undefined : `http_${googleRes.status}`);
   if (googleRes.ok) {
     try {
-      const parsed = JSON.parse(responseText);
-      const imagePart = parsed?.candidates?.[0]?.content?.parts?.find(
+      const imagePart = parsedResponse?.candidates?.[0]?.content?.parts?.find(
         (part: { inlineData?: { data?: string } }) => part.inlineData?.data,
       ) as { inlineData: { data: string; mimeType?: string } } | undefined;
 
