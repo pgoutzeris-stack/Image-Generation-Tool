@@ -894,7 +894,7 @@
     </div>
     <div id="roots-view-forgot" style="display:none">
       <h1 class="roots-card-title">Passwort zurücksetzen</h1>
-      <p class="roots-card-sub">Gib deine E-Mail ein – wir schicken dir einen Link.</p>
+      <p class="roots-card-sub">Gib deine E-Mail ein - wir schicken dir einen Link.</p>
       <div id="roots-reset-error" class="roots-alert roots-alert-error">
         <i class="fa-solid fa-circle-exclamation"></i><span id="roots-reset-error-text"></span>
       </div>
@@ -1097,7 +1097,7 @@
       </button>
     </nav>
 
-    <!-- KI-Einstellungen (nur für Admins) — wie WissensHub -->
+    <!-- KI-Einstellungen (nur für Admins) - wie WissensHub -->
     <div id="sidebar-settings-area" style="margin-top:auto;padding-top:.75rem;border-top:1px solid var(--line);display:none">
       <button class="dash-nav-item" onclick="openImageAiSettings()" style="color:var(--muted)">
         <i class="fa-solid fa-gear"></i>
@@ -1420,7 +1420,7 @@
     try {
       await callImageFunction('save_google_api_key', { apiKey });
       if (input) input.value = '';
-      // Modal schließen BEVOR toast — dann ist toast sichtbar
+      // Modal schließen BEVOR toast - dann ist toast sichtbar
       closeImageAiSettings();
       toast('Google API-Key gespeichert ✓ Bildgenerierung ist jetzt aktiv.', 'success');
     } catch (error) {
@@ -1834,9 +1834,9 @@
   }
 
   const IMAGE_FUNCTION_URL = 'https://csmguwcvzreefluhahyu.supabase.co/functions/v1/image-generation';
-  const MODEL_PRO = 'gemini-3-pro-image';        // Nano Banana Pro — professionell
-  const MODEL_NB2 = 'gemini-3.1-flash-image';    // Nano Banana 2 — beste Balance
-  const MODEL_NB1 = 'gemini-2.5-flash-image';    // Nano Banana 1 — schnell
+  const MODEL_PRO = 'gemini-3-pro-image';        // Nano Banana Pro - professionell
+  const MODEL_NB2 = 'gemini-3.1-flash-image';    // Nano Banana 2 - beste Balance
+  const MODEL_NB1 = 'gemini-2.5-flash-image';    // Nano Banana 1 - schnell
   const RETRYABLE_KEYWORDS = [
     'resource', 'overloaded', 'rate', 'quota', 'limit', 'capacity',
     'demand', 'busy', 'try again', 'unavailable', 'internal', 'backend',
@@ -1909,7 +1909,7 @@
       const sb = window.__rootsSupabaseClient || window.RootsUser?._sb;
       if (!sb) throw new Error('Kein Supabase-Client verfügbar');
       const { data: { session } } = await sb.auth.getSession();
-      if (!session) throw new Error('Nicht angemeldet — bitte Seite neu laden');
+      if (!session) throw new Error('Nicht angemeldet - bitte Seite neu laden');
 
       const resp = await fetch(IMAGE_FUNCTION_URL, {
         method: 'POST',
@@ -1928,9 +1928,9 @@
           const errData = await resp.json();
           errMsg = errData?.error?.message || errData?.error?.error?.message
             || errData?.error || errData?.message || errMsg;
-          if (resp.status === 503) errMsg = 'Google API-Key nicht hinterlegt — bitte in KI-Einstellungen speichern';
+          if (resp.status === 503) errMsg = 'Google API-Key nicht hinterlegt - bitte in KI-Einstellungen speichern';
           if (resp.status === 401 && !errData?.error?.message && !errData?.message) {
-            errMsg = 'Nicht angemeldet — bitte Seite neu laden';
+            errMsg = 'Nicht angemeldet - bitte Seite neu laden';
           }
         } catch {}
         throw new Error(errMsg);
@@ -1951,7 +1951,7 @@
     const finishReason = raw?.candidates?.[0]?.finishReason;
     const googleErr = raw?.error?.message;
     const errText = googleErr || (finishReason && finishReason !== 'STOP' ? `Abgebrochen (${finishReason})` : null)
-      || 'Kein Bild generiert — Sicherheitsfilter oder Modell-Fehler';
+      || 'Kein Bild generiert - Sicherheitsfilter oder Modell-Fehler';
     throw new Error(errText);
   }
 
@@ -2039,7 +2039,7 @@
         if (modalInput) {
           modalInput.value = '••••••••••••';
           modalInput.dataset.saved = '1';
-          modalInput.placeholder = 'Gesetzt – neu eingeben zum Ändern';
+          modalInput.placeholder = 'Gesetzt - neu eingeben zum Ändern';
           modalInput.classList.add('has-value');
         }
       } else {
@@ -2119,7 +2119,7 @@
 
         if (attempt > 1) {
           var waitSec = Math.min(15 + (attempt - 1) * 20, 60);
-          activeLog = createActiveLog(`Bild ${idx} · Versuch ${attempt}/${model.maxRetries} – warte auf Server-Abkühlung `);
+          activeLog = createActiveLog(`Bild ${idx} · Versuch ${attempt}/${model.maxRetries} - warte auf Server-Abkühlung `);
           
           try { await sleep(waitSec * 1000); } catch(e){}
           
@@ -2543,7 +2543,7 @@
   activeHistoryDetailId = id;
   const date = data.created_at
     ? new Date(data.created_at).toLocaleDateString('de-DE', {day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'})
-    : '—';
+    : '-';
 
   // Header-Bild
   const hdpImg = document.getElementById('hdp-img');
@@ -2554,7 +2554,7 @@
   }
 
   // Felder füllen
-  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val || '—'; };
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val || '-'; };
   set('hdp-model',  data.model_label || data.model_id);
   set('hdp-date',   date);
   set('hdp-prompt', data.prompt);
@@ -2680,7 +2680,7 @@ window.deleteHistoryItem = async function(id, btn) {
     } catch (error) {
       overlay.style.display='flex';
       const errorText = document.getElementById('roots-error-text');
-      if (errorText) errorText.textContent = 'Intranet-Sitzung nicht verfügbar — bitte im Hauptfenster neu anmelden.';
+      if (errorText) errorText.textContent = 'Intranet-Sitzung nicht verfügbar - bitte im Hauptfenster neu anmelden.';
       document.getElementById('roots-error-banner')?.classList.add('visible');
     }
   }
@@ -2964,7 +2964,7 @@ window.RootsUser = window.RootsUser || {
     const btn=document.getElementById('rus-save');
     const msg=document.getElementById('rus-msg');
     const showMsg=(text,ok)=>{if(!msg)return;msg.style.cssText='display:block;font-size:.85rem;text-align:center;margin-top:.5rem;padding:.5rem;border-radius:8px;background:'+(ok?'#ecfdf5':'#fef2f2')+';color:'+(ok?'#10b981':'#dc2626');msg.textContent=text;};
-    if(!this._sb||!this._uid){showMsg('Nicht angemeldet — bitte neu einloggen',false);return;}
+    if(!this._sb||!this._uid){showMsg('Nicht angemeldet - bitte neu einloggen',false);return;}
     const orig=btn?btn.innerHTML:'';
     if(btn){btn.disabled=true;btn.innerHTML='<i class="fa-solid fa-circle-notch fa-spin"></i> Speichern…';}
     if(msg)msg.style.display='none';
@@ -2997,8 +2997,8 @@ window.RootsUser = window.RootsUser || {
   <div class="history-detail-header">
     <img class="history-detail-header-img" id="hdp-img" src="" alt="" />
     <div class="history-detail-header-title">
-      <h3 id="hdp-model">—</h3>
-      <p id="hdp-date">—</p>
+      <h3 id="hdp-model">-</h3>
+      <p id="hdp-date">-</p>
     </div>
     <button class="history-detail-close" onclick="closeHistoryDetail()" title="Schließen">
       <i class="fa-solid fa-xmark"></i>
@@ -3008,7 +3008,7 @@ window.RootsUser = window.RootsUser || {
     <!-- Prompt -->
     <div>
       <div class="history-detail-section-label">Prompt</div>
-      <div class="history-detail-prompt" id="hdp-prompt">—</div>
+      <div class="history-detail-prompt" id="hdp-prompt">-</div>
     </div>
     <!-- Meta -->
     <div>
@@ -3016,19 +3016,19 @@ window.RootsUser = window.RootsUser || {
       <div class="history-detail-meta-grid">
         <div class="history-detail-meta-item">
           <div class="history-detail-meta-item-label">Erstellt von</div>
-          <div class="history-detail-meta-item-value" id="hdp-user">—</div>
+          <div class="history-detail-meta-item-value" id="hdp-user">-</div>
         </div>
         <div class="history-detail-meta-item">
           <div class="history-detail-meta-item-label">Datum</div>
-          <div class="history-detail-meta-item-value" id="hdp-date2">—</div>
+          <div class="history-detail-meta-item-value" id="hdp-date2">-</div>
         </div>
         <div class="history-detail-meta-item">
           <div class="history-detail-meta-item-label">Modell</div>
-          <div class="history-detail-meta-item-value" id="hdp-model2">—</div>
+          <div class="history-detail-meta-item-value" id="hdp-model2">-</div>
         </div>
         <div class="history-detail-meta-item">
           <div class="history-detail-meta-item-label">Seitenverhältnis</div>
-          <div class="history-detail-meta-item-value" id="hdp-aspect">—</div>
+          <div class="history-detail-meta-item-value" id="hdp-aspect">-</div>
         </div>
       </div>
     </div>
