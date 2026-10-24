@@ -1657,9 +1657,8 @@
     wrapper.classList.remove('open');
   }
 
-  const PORTRAIT_MASTER_URL = 'assets/portrait-master.jpg';
   let portraitInput = null;
-  let portraitMasterCache = null;
+  const portraitMasterCache = {};
 
   function isPortraitMode() {
     return Boolean(styleOptions.find(o => o.id === currentStyleValue)?.needsPortraitInput);
@@ -1730,9 +1729,9 @@
     if (!value) document.getElementById('portrait-file-input').value = '';
   }
 
-  async function loadPortraitMaster() {
-    if (portraitMasterCache) return portraitMasterCache;
-    const resp = await fetch(PORTRAIT_MASTER_URL, { cache: 'force-cache' });
+  async function loadPortraitMaster(url) {
+    if (portraitMasterCache[url]) return portraitMasterCache[url];
+    const resp = await fetch(url, { cache: 'force-cache' });
     if (!resp.ok) throw new Error('Masterbild konnte nicht geladen werden.');
     const blob = await resp.blob();
     const dataUrl = await new Promise((resolve, reject) => {
@@ -1741,8 +1740,8 @@
       reader.onerror = () => reject(new Error('Masterbild konnte nicht gelesen werden.'));
       reader.readAsDataURL(blob);
     });
-    portraitMasterCache = { data: dataUrl.split(',')[1], mimeType: 'image/jpeg' };
-    return portraitMasterCache;
+    portraitMasterCache[url] = { data: dataUrl.split(',')[1], mimeType: 'image/jpeg' };
+    return portraitMasterCache[url];
   }
 
   function renderCustomDropdown() {
@@ -1987,7 +1986,7 @@ Licht und Stimmung:
 - Klare visuelle Hierarchie mit der Produktgruppe im Zentrum
 Text: ausschließlich „NIVEA“, „Eucerin“ und „Labello“, korrekt geschrieben und lesbar auf der jeweiligen Verpackung.
 VERBOTEN: keine Personen, keine Slogans, keine themenfremden Objekte, keine weiteren Marken, kein Wasserzeichen. Produktgruppe und Icons nie anschneiden.` },
-    { id: "portrait", name: "Corporate Portrait (dunkel)", aspect: "1:1", needsPortraitInput: true, prompt: `Create a high-resolution, photorealistic corporate portrait in a consistent standardized final style.
+    { id: "portrait", name: "Corporate Portrait (dunkel)", aspect: "1:1", needsPortraitInput: true, masterUrl: "assets/portrait-master.jpg", prompt: `Create a high-resolution, photorealistic corporate portrait in a consistent standardized final style.
 INPUT IMAGES:
 
 * Image 1 contains the new person and is the strict reference for identity, face, hairstyle, expression, clothing, and body posture.
@@ -2123,6 +2122,133 @@ FINAL CONSTRAINTS:
 * no identity blending
 * no background elements from Image 1
 * no visible compositing artifacts
+* no unnatural anatomy` },
+    { id: "portrait-hell", name: "Corporate Portrait (hell)", aspect: "1:1", needsPortraitInput: true, masterUrl: "assets/portrait-master-hell.jpg", prompt: `Create a high-resolution, photorealistic corporate portrait in the standardized bright-office portrait style described below.
+INPUT IMAGES:
+
+* Image 1 is the strict reference for the person's identity, facial features, hairstyle, expression, clothing, and body posture.
+* Image 2 is the fixed master background and must be reproduced as faithfully as possible.
+
+PERSON:
+Feature ONLY the person from Image 1.
+Preserve their recognizable identity exactly:
+
+* facial structure and proportions
+* eye shape and eye color
+* eyebrows
+* nose
+* lips, teeth, and smile
+* ears and jawline
+* hairstyle, hairline, hair color, and hair length
+* age and natural skin characteristics
+* beard, stubble, or clean-shaven appearance
+* original facial expression
+
+Do not beautify, rejuvenate, masculinize, feminize, or reinterpret the person. Do not replace or blend their facial features with another identity.
+CLOTHING:
+Preserve the original clothing from Image 1 exactly, including:
+
+* garment type
+* colors
+* jacket, shirt, blouse, sweater, tie, or dress
+* collar and neckline
+* buttons and patterns
+* fabric texture
+* fit and layering
+
+If clothing continues beyond the original crop, extend it naturally without inventing a different outfit.
+BODY POSITION:
+Preserve the posture from Image 1:
+
+* torso rotation
+* shoulder position
+* shoulder-line slope
+* body lean
+* natural asymmetry
+* head direction relative to the torso
+* clothing perspective created by the pose
+
+Do not automatically frontalize or symmetrize the body.
+STANDARDIZED COMPOSITION:
+Always create:
+
+* square 1:1 format
+* professional close head-and-shoulders portrait
+* large but natural head size
+* head positioned near the upper center
+* a small, balanced amount of space above the hair
+* shoulders filling the lower portion of the frame
+* direct eye contact whenever consistent with Image 1
+* natural portrait-lens perspective
+* sharp focus on the eyes and face
+* softly fading focus toward the shoulders
+
+BACKGROUND:
+Remove the original background from Image 1 completely.
+Use Image 2 as the exact background:
+
+* bright, high-key modern office
+* very soft optical blur
+* pale white, cool gray, and subtle blue palette
+* broad luminous window area across the left and center-left
+* soft blue-gray office partition near the lower-left
+* pale neutral ceiling and wall tones
+* soft vertical light-gray architectural panel toward the right
+* diffuse daylight
+* extremely shallow depth of field
+* no recognizable or sharp furniture
+* smooth, low-contrast tonal transitions
+
+Do not darken, redesign, recolor, sharpen, or add objects to the background.
+LIGHTING:
+Apply soft, bright, professional office lighting:
+
+* diffuse frontal daylight
+* even facial exposure
+* gentle modeling of facial features
+* clear but natural catchlights in the eyes
+* subtle separation between hair and background
+* clean, neutral skin tones
+* no dramatic shadows
+* no harsh flash
+* no orange color cast
+* no artificial studio spotlight
+
+IMAGE QUALITY:
+
+* photorealistic
+* professional corporate photography
+* realistic skin pores and natural wrinkles
+* individual hair strands
+* realistic facial hair
+* authentic fabric texture
+* clean hair and shoulder edges
+* polished but natural retouching
+* no plastic skin
+* no excessive skin smoothing
+* no artificial HDR
+* no visible compositing artifacts
+* no facial distortion
+
+STRICT PRIORITY:
+
+1. Identity, face, expression, hairstyle, clothing, and posture come from Image 1.
+2. Background comes exactly from Image 2.
+3. Framing, lighting, focus, and color grading follow this standardized bright-office portrait style.
+
+FINAL CONSTRAINTS:
+
+* exactly one person
+* no identity blending
+* no change of clothing
+* no change of eye color
+* no change of age
+* no change of facial proportions
+* no added jewelry or accessories
+* no text
+* no logos
+* no watermark
+* no background elements from Image 1
 * no unnatural anatomy` },
     { id: "photo", name: "Fotorealistisch", prompt: "Photorealistic, high quality, 8k, DSLR" },
     { id: "anime", name: "Anime / Manga", prompt: "Anime / Manga Style, vibrant colors, clean lines" },
@@ -2400,7 +2526,7 @@ FINAL CONSTRAINTS:
           const styleOpt = styleOptions.find(o => o.id === currentStyleValue);
           const stylePrompt = styleOpt ? styleOpt.prompt : '';
           const inputImages = styleOpt?.needsPortraitInput
-            ? [{ data: portraitInput.data, mimeType: portraitInput.mimeType }, await loadPortraitMaster()]
+            ? [{ data: portraitInput.data, mimeType: portraitInput.mimeType }, await loadPortraitMaster(styleOpt.masterUrl)]
             : [];
 
           const result = await callImageFunction('generate_image', {
