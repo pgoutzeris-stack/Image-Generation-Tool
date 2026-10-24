@@ -1683,7 +1683,13 @@
     document.getElementById('portrait-input')?.classList.toggle('visible', active);
     document.querySelector('.reference-actions')?.classList.toggle('hidden', active);
     document.body.classList.toggle('portrait-mode', active);
-    ['dd-aspect', 'dd-model'].forEach(id => document.getElementById(id)?.classList.toggle('locked', active));
+    ['dd-aspect', 'dd-model', 'dd-count'].forEach(id => document.getElementById(id)?.classList.toggle('locked', active));
+    if (active) {
+      document.getElementById('sel-count').value = '1';
+      const countWrapper = document.getElementById('dd-count');
+      countWrapper.querySelector('.selected-text').textContent = '1 Bild';
+      countWrapper.querySelectorAll('.custom-option').forEach((opt, i) => opt.classList.toggle('selected', i === 0));
+    }
     document.querySelectorAll('#prompt-list input').forEach(input => {
       input.disabled = active;
       if (active) input.value = '';
