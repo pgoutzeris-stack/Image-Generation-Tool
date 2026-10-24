@@ -67,11 +67,16 @@ function buildSystemInstruction(
   hasStyleReference: boolean,
   hasLogoReference: boolean,
   logoPlacement: string,
+  inputImageCount = 0,
 ) {
   const sections = [
     "Du bist ein professioneller Art Director und Bildgenerator. Erzeuge genau das vom Nutzer beschriebene Motiv.",
   ];
-  if (stylePrompt) {
+  if (inputImageCount > 0 && stylePrompt) {
+    sections.push(
+      `VERBINDLICHER ARBEITSAUFTRAG FÜR DIE EINGABEBILDER (Image 1 bis Image ${inputImageCount}, in dieser Reihenfolge übergeben):\n${stylePrompt}`,
+    );
+  } else if (stylePrompt) {
     sections.push(
       `VERBINDLICHE STILVORGABE:\n${stylePrompt}\nDie Stilvorgabe bestimmt ausschließlich die visuelle Ausführung. Sie darf Motiv, Fakten und ausdrückliche Anforderungen des Nutzers nicht ersetzen.`,
     );
@@ -275,10 +280,16 @@ Deno.serve(async (req: Request) => {
 
   let styleReference;
   let logoReference;
+  const inputImages: Array<{ data: string; mimeType: string }> = [];
   try {
     styleReference = readReference(body, "styleReferenceData", "styleReferenceMimeType")
       || readReference(body, "refImageData", "refImageMimeType");
     logoReference = readReference(body, "logoReferenceData", "logoReferenceMimeType");
+    const rawInputs = Array.isArray(body.inputImages) ? body.inputImages.slice(0, 2) : [];
+    for (const item of rawInputs) {
+      const ref = readReference((item ?? {}) as Record<string, unknown>, "data", "mimeType");
+      if (ref) inputImages.push(ref);
+    }
   } catch (error) {
     return errorResponse(error instanceof Error ? error.message : "Referenzbild ist ungültig.", 400);
   }
@@ -292,6 +303,10 @@ Deno.serve(async (req: Request) => {
   if (!apiKey) return errorResponse("Google API-Key nicht hinterlegt — bitte in KI-Einstellungen speichern", 503);
 
   const parts: Array<Record<string, unknown>> = [{ text: `BILDAUFTRAG:\n${promptText}` }];
+  inputImages.forEach((image, index) => {
+    parts.push({ text: `Image ${index + 1}:` });
+    parts.push({ inlineData: image });
+  });
   if (styleReference) {
     parts.push({ text: "STILREFERENZ (nur visuelle Bildsprache übernehmen):" });
     parts.push({ inlineData: styleReference });
@@ -315,6 +330,7 @@ Deno.serve(async (req: Request) => {
               Boolean(styleReference),
               Boolean(logoReference),
               logoPlacement,
+              inputImages.length,
             ),
           }],
         },

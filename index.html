@@ -480,6 +480,14 @@
   .reference-action-copy span { font-size: .69rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .reference-action.has-reference .reference-action-copy span { color: #15803d; }
 
+  .reference-actions.hidden { display: none; }
+  .portrait-input { display: none; margin-top: 12px; }
+  .portrait-input.visible { display: block; }
+  .portrait-input .drop-zone { position: relative; min-height: 180px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .portrait-input .drop-zone img { max-height: 220px; }
+  .portrait-confirm { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: .8rem; font-weight: 600; cursor: pointer; }
+  .portrait-confirm input { width: 16px; height: 16px; margin: 0; accent-color: var(--brand); }
+  #dd-aspect.locked { pointer-events: none; opacity: .6; }
   .reference-modal { width: min(500px, 94vw); max-width: 500px; max-height: 88vh; overflow-y: auto; }
   .reference-card { min-width: 0; }
   .reference-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; color: var(--ink); }
@@ -1185,6 +1193,21 @@
             </span>
           </button>
         </div>
+        <div id="portrait-input" class="portrait-input">
+          <div id="portrait-drop-zone" class="drop-zone">
+            <i id="portrait-drop-icon" class="fa-solid fa-user"></i>
+            <p id="portrait-drop-text">Porträtfoto ablegen oder auswählen</p>
+            <input type="file" id="portrait-file-input" accept="image/*" style="display:none;">
+            <img id="portrait-drop-preview" src="" style="display:none;" alt="Porträtfoto">
+            <button id="btn-remove-portrait" class="btn-remove-ref" title="Foto entfernen">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+          <label class="portrait-confirm">
+            <input type="checkbox" id="portrait-confirm">
+            <span>Das Foto ist ein Porträt einer einzelnen Person</span>
+          </label>
+        </div>
       </div>
 
       <div class="grid-2">
@@ -1634,6 +1657,94 @@
     wrapper.classList.remove('open');
   }
 
+  const PORTRAIT_MASTER_URL = 'assets/portrait-master.jpg';
+  let portraitInput = null;
+  let portraitMasterCache = null;
+
+  function isPortraitMode() {
+    return Boolean(styleOptions.find(o => o.id === currentStyleValue)?.needsPortraitInput);
+  }
+
+  function setAspectValue(value) {
+    document.getElementById('sel-aspect').value = value;
+    const wrapper = document.getElementById('dd-aspect');
+    wrapper?.querySelectorAll('.custom-option').forEach(opt => {
+      const match = (opt.getAttribute('onclick') || '').includes(`'${value}'`);
+      opt.classList.toggle('selected', match);
+      if (match) wrapper.querySelector('.selected-text').innerText = opt.innerText.trim();
+    });
+  }
+
+  function updatePortraitMode() {
+    const active = isPortraitMode();
+    document.getElementById('portrait-input')?.classList.toggle('visible', active);
+    document.querySelector('.reference-actions')?.classList.toggle('hidden', active);
+    document.getElementById('dd-aspect')?.classList.toggle('locked', active);
+    if (active) {
+      removeReference('style');
+      removeReference('logo');
+    }
+  }
+
+  function setupPortraitInput() {
+    const zone = document.getElementById('portrait-drop-zone');
+    const input = document.getElementById('portrait-file-input');
+    const removeButton = document.getElementById('btn-remove-portrait');
+    if (!zone || !input || !removeButton) return;
+    zone.addEventListener('click', (event) => {
+      if (event.target !== removeButton && !removeButton.contains(event.target)) input.click();
+    });
+    zone.addEventListener('dragover', (event) => { event.preventDefault(); zone.classList.add('dragover'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+    zone.addEventListener('drop', (event) => {
+      event.preventDefault();
+      zone.classList.remove('dragover');
+      const files = event.dataTransfer.files;
+      if (files?.length > 1) { toast('Bitte genau ein Foto ablegen.', 'error'); return; }
+      if (files?.[0]) handlePortraitFile(files[0]);
+    });
+    input.addEventListener('change', () => { if (input.files?.[0]) handlePortraitFile(input.files[0]); });
+    removeButton.addEventListener('click', (event) => { event.stopPropagation(); setPortraitInput(null); });
+  }
+
+  async function handlePortraitFile(file) {
+    if (!file.type.startsWith('image/')) { toast('Bitte eine Bilddatei auswählen.', 'error'); return; }
+    if (file.size > 15 * 1024 * 1024) { toast('Die Datei ist größer als 15 MB.', 'error'); return; }
+    try {
+      setPortraitInput({ ...(await optimizeReferenceImage(file, 'style')), name: file.name });
+    } catch (error) {
+      toast(error.message || 'Bild konnte nicht verarbeitet werden.', 'error');
+    }
+  }
+
+  function setPortraitInput(value) {
+    portraitInput = value;
+    const preview = document.getElementById('portrait-drop-preview');
+    preview.src = value?.previewUrl || '';
+    preview.style.display = value ? 'block' : 'none';
+    document.getElementById('portrait-drop-icon').style.display = value ? 'none' : '';
+    document.getElementById('portrait-drop-text').style.display = value ? 'none' : '';
+    document.getElementById('btn-remove-portrait').style.display = value ? 'flex' : 'none';
+    const confirm = document.getElementById('portrait-confirm');
+    if (confirm) confirm.checked = false;
+    if (!value) document.getElementById('portrait-file-input').value = '';
+  }
+
+  async function loadPortraitMaster() {
+    if (portraitMasterCache) return portraitMasterCache;
+    const resp = await fetch(PORTRAIT_MASTER_URL, { cache: 'force-cache' });
+    if (!resp.ok) throw new Error('Masterbild konnte nicht geladen werden.');
+    const blob = await resp.blob();
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error('Masterbild konnte nicht gelesen werden.'));
+      reader.readAsDataURL(blob);
+    });
+    portraitMasterCache = { data: dataUrl.split(',')[1], mimeType: 'image/jpeg' };
+    return portraitMasterCache;
+  }
+
   function renderCustomDropdown() {
     const container = document.getElementById('custom-options-container');
     const triggerText = document.getElementById('selected-style-text');
@@ -1683,6 +1794,8 @@
     if (opt) {
       currentStyleValue = opt.id;
       document.getElementById('selected-style-text').textContent = opt.name;
+      if (opt.aspect) setAspectValue(opt.aspect);
+      updatePortraitMode();
       if (id === 'custom') openCustomStyleEditor();
     }
     wrapper.classList.remove('open');
@@ -1862,6 +1975,155 @@
       name: "Lidl Esmara Fashion Kampagne",
       prompt: "STIL: Moderne, hochwertige Fashion-Kampagne (inspirierte Ästhetik).\nVisual Identity (STRICT):\n- Farbpalette: warme Beige-Töne, weiches Creme, subtile rote Akzente (#d50000)\n- Beleuchtung: weiches diffuses Studiolicht, warm, elegant\n- Stimmung: premium, ruhig, minimalistisch\n- Materialien: weiche Stoffe, natürliche Texturen\n- Hintergrund: clean, neutral, leicht unscharf\nPhotography Style: High-End Editorial, flache Schärfentiefe.\nVERBOTEN: Schreibe KEINESFALLS die Wörter 'Esmara' oder 'Lidl' in das Bild. Generiere KEINE Logos oder Markennamen."
     },
+    { id: "beiersdorf", name: "Beiersdorf Hero-Visual", aspect: "9:16", prompt: `STIL: Beiersdorf Hero-Visual für NIVEA, Eucerin und Labello. Dramatischer, cineastischer 3D-Look.
+Bildaufbau:
+- Zentrales kreisförmiges Portal mit leuchtenden Neonringen, darin die Produktgruppe aus NIVEA, Eucerin und Labello
+- Fünf Icons sauber und mit großzügigem Abstand um das Portal angeordnet, keines angeschnitten
+- Links und rechts futuristische Produktionslinien mit sichtbaren, gemischten Produkten der drei Marken
+- Futuristische Fabrikszenerie mit Lichtstrahlen, Industriestrukturen und Leiterbahnen, die in den dunklen Hintergrund übergehen
+Licht und Stimmung:
+- Elektrisch blaue Beleuchtung links, feurig orange Beleuchtung rechts
+- Neonringe, Funken, Reflexionen, tiefer Navy-Hintergrund
+- Klare visuelle Hierarchie mit der Produktgruppe im Zentrum
+Text: ausschließlich „NIVEA“, „Eucerin“ und „Labello“, korrekt geschrieben und lesbar auf der jeweiligen Verpackung.
+VERBOTEN: keine Personen, keine Slogans, keine themenfremden Objekte, keine weiteren Marken, kein Wasserzeichen. Produktgruppe und Icons nie anschneiden.` },
+    { id: "portrait", name: "Corporate Portrait", aspect: "1:1", needsPortraitInput: true, prompt: `Create a high-resolution, photorealistic corporate portrait in a consistent standardized final style.
+INPUT IMAGES:
+
+* Image 1 contains the new person and is the strict reference for identity, face, hairstyle, expression, clothing, and body posture.
+* Image 2 is the fixed master reference for the final background, lighting, composition, crop, camera perspective, and photographic style. Image 2 shows the background only, without a person; place the person from Image 1 in front of it using the composition rules below.
+
+AUTOMATIC SOURCE ANALYSIS:
+First analyze Image 1 and identify the person's exact identity, facial features, age, hairstyle, expression, clothing, torso orientation, shoulder position, and posture.
+Ignore the original background, image format, lighting, camera quality, and color grading of Image 1.
+PERSON AND IDENTITY:
+Feature ONLY the person from Image 1.
+Preserve their recognizable identity exactly:
+
+* facial structure and proportions
+* eyes and eye color
+* eyebrows
+* nose
+* lips and smile
+* ears
+* jawline
+* hairstyle, hairline, hair color, and hair length
+* age and natural skin texture
+* facial hair, if present
+* natural expression
+
+Do not beautify, rejuvenate, masculinize, feminize, or reinterpret the person. Do not copy or blend facial features from Image 2.
+CLOTHING:
+Preserve the clothing from Image 1 exactly:
+
+* type of garment
+* colors
+* jacket, shirt, blouse, sweater, or dress
+* collar
+* tie
+* buttons
+* patterns
+* fabrics
+* fit
+
+Do not replace the clothing with clothing from Image 2. If parts of the clothing are outside the original crop, extend them naturally and consistently without inventing a different outfit.
+BODY POSITION:
+Preserve the body posture from Image 1:
+
+* torso orientation
+* body rotation
+* shoulder position
+* shoulder-line slope
+* body lean
+* natural asymmetry
+* head direction relative to the torso
+* clothing perspective created by the pose
+
+Do not automatically frontalize or symmetrize the person.
+STANDARDIZED FINAL COMPOSITION:
+Always produce the same consistent final portrait design based on Image 2:
+
+* square 1:1 format
+* professional head-and-shoulders portrait
+* centered and balanced composition
+* matching camera distance
+* matching head size
+* matching vertical head placement
+* similar space above the hair
+* direct eye contact whenever consistent with Image 1
+* natural shoulder crop
+* realistic portrait-lens perspective
+* high-resolution professional photography
+
+FIXED BACKGROUND:
+Remove the original background of Image 1 completely.
+Recreate the background of Image 2 as accurately and consistently as possible:
+
+* softly blurred modern office environment
+* muted cool gray-green and gray-blue color palette
+* large soft warm-white rectangular bokeh light in the upper-left area
+* pale vertical window or light area on the left
+* subtle greenish blurred area below it
+* darker blurred vertical structure near the far-left edge
+* subdued, low-contrast gray office shapes on the right
+* strong but natural shallow depth of field
+* realistic optical bokeh
+* no recognizable furniture
+* no sharp background details
+* no distracting objects
+
+The background must look consistent across every generated portrait. Do not redesign, simplify, brighten, darken, or substantially shift the colors of the master background.
+LIGHTING:
+Apply the professional lighting style from Image 2:
+
+* soft natural illumination
+* even facial exposure
+* gentle modeling of facial features
+* realistic highlights in the eyes
+* subtle separation between hair and background
+* natural skin tones
+* no harsh flash
+* no dramatic shadows
+* no artificial studio look
+
+Integrate the person naturally into the reference environment while preserving their identity.
+IMAGE QUALITY:
+
+* photorealistic
+* realistic skin pores
+* natural wrinkles and age characteristics
+* realistic individual hair strands
+* authentic fabric texture
+* clean hair and shoulder edges
+* natural lens rendering
+* professional corporate color grading
+* no excessive retouching
+* no plastic skin
+* no artificial HDR effect
+* no facial distortion
+
+STRICT PRIORITY ORDER:
+
+1. Identity, facial features, expression, hairstyle, clothing, and body posture must come from Image 1.
+2. Background, lighting, framing, head scale, crop, camera rendering, and color style must come from Image 2.
+3. Never mix the identities, faces, hairstyles, clothing, or physical characteristics of the two people.
+
+FINAL CONSTRAINTS:
+
+* only one person
+* no text
+* no logos
+* no watermark
+* no added accessories
+* no invented jewelry
+* no change of clothing
+* no change of eye color
+* no change of age
+* no change of facial proportions
+* no identity blending
+* no background elements from Image 1
+* no visible compositing artifacts
+* no unnatural anatomy` },
     { id: "photo", name: "Fotorealistisch", prompt: "Photorealistic, high quality, 8k, DSLR" },
     { id: "anime", name: "Anime / Manga", prompt: "Anime / Manga Style, vibrant colors, clean lines" },
     { id: "watercolor", name: "Aquarell Malerei", prompt: "Watercolor painting, expressive brushstrokes" },
@@ -2137,6 +2399,9 @@
         try {
           const styleOpt = styleOptions.find(o => o.id === currentStyleValue);
           const stylePrompt = styleOpt ? styleOpt.prompt : '';
+          const inputImages = styleOpt?.needsPortraitInput
+            ? [{ data: portraitInput.data, mimeType: portraitInput.mimeType }, await loadPortraitMaster()]
+            : [];
 
           const result = await callImageFunction('generate_image', {
             modelId: model.id,
@@ -2149,7 +2414,8 @@
             styleReferenceMimeType: styleReference?.mimeType || null,
             logoReferenceData: logoReference?.data || null,
             logoReferenceMimeType: logoReference?.mimeType || null,
-            logoPlacement: logoReference ? logoPlacement : null
+            logoPlacement: logoReference ? logoPlacement : null,
+            inputImages
           });
 
           if (batchCancelled) { completeActiveLog(activeLog, "Gestoppt.", 'warn'); return null; }
@@ -2185,7 +2451,20 @@
   async function startBatch() {
     const prompts = Array.from(document.querySelectorAll('#prompt-list input[type="text"]'))
       .map(i => i.value.trim()).filter(Boolean);
-    
+
+    if (isPortraitMode()) {
+      if (!portraitInput) {
+        toast('Bitte ein Porträtfoto hochladen.', 'error');
+        return;
+      }
+      if (!document.getElementById('portrait-confirm')?.checked) {
+        toast('Bitte bestätigen, dass das Foto ein Porträt einer Person ist.', 'error');
+        return;
+      }
+      setAspectValue('1:1');
+      if (prompts.length === 0) prompts.push('Erzeuge das Corporate Portrait der Person aus Image 1 vor dem Hintergrund aus Image 2.');
+    }
+
     if (prompts.length === 0) {
       toast('Bitte mindestens einen Prompt eingeben.', 'error');
       return;
@@ -2302,6 +2581,7 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     renderCustomDropdown();
+    setupPortraitInput();
   });
 
   // ── Tab-Switching ─────────────────────────────────────────────────────────
