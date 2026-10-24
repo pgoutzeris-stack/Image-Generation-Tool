@@ -487,7 +487,11 @@
   .portrait-input .drop-zone img { max-height: 220px; }
   .portrait-confirm { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: .8rem; font-weight: 600; cursor: pointer; }
   .portrait-confirm input { width: 16px; height: 16px; margin: 0; accent-color: var(--brand); }
-  #dd-aspect.locked { pointer-events: none; opacity: .6; }
+  .custom-select-wrapper.locked { pointer-events: none; opacity: .5; }
+  .custom-select-trigger .selected-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .custom-select-trigger i.arrow { flex: 0 0 auto; margin-left: 8px; }
+  body.portrait-mode .card-top { height: auto; min-height: 500px; }
+  body.portrait-mode #prompt-list, body.portrait-mode #btn-add-prompt { opacity: .5; pointer-events: none; }
   .reference-modal { width: min(500px, 94vw); max-width: 500px; max-height: 88vh; overflow-y: auto; }
   .reference-card { min-width: 0; }
   .reference-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; color: var(--ink); }
@@ -1670,7 +1674,7 @@
     wrapper?.querySelectorAll('.custom-option').forEach(opt => {
       const match = (opt.getAttribute('onclick') || '').includes(`'${value}'`);
       opt.classList.toggle('selected', match);
-      if (match) wrapper.querySelector('.selected-text').innerText = opt.innerText.trim();
+      if (match) wrapper.querySelector('.selected-text').textContent = opt.textContent.trim();
     });
   }
 
@@ -1678,7 +1682,12 @@
     const active = isPortraitMode();
     document.getElementById('portrait-input')?.classList.toggle('visible', active);
     document.querySelector('.reference-actions')?.classList.toggle('hidden', active);
-    document.getElementById('dd-aspect')?.classList.toggle('locked', active);
+    document.body.classList.toggle('portrait-mode', active);
+    ['dd-aspect', 'dd-model'].forEach(id => document.getElementById(id)?.classList.toggle('locked', active));
+    document.querySelectorAll('#prompt-list input').forEach(input => {
+      input.disabled = active;
+      if (active) input.value = '';
+    });
     if (active) {
       removeReference('style');
       removeReference('logo');
