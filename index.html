@@ -1695,9 +1695,7 @@
       if (!btn) return;
       btn.classList.toggle('locked', locked);
       btn.disabled = locked;
-      if (locked) removeReference(kind); else updateReferenceUi(kind);
-      const label = document.getElementById(`${kind}-reference-label`);
-      if (label && locked) label.textContent = 'Gesperrt';
+      if (locked) removeReference(kind);
     });
     if (active) {
       document.getElementById('sel-count').value = '1';
