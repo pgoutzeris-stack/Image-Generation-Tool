@@ -213,6 +213,10 @@
   .custom-option.selected .option-text { color: var(--brand); }
   
   .custom-option-group { padding: 10px 16px 6px; font-size: .7rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); background: #f8fafc; border-bottom: 1px solid #f1f5f9; }
+  .style-preview { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 10px; }
+  .style-preview-title { font-size: .78rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .style-preview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+  .style-preview-grid img { width: 100%; border-radius: 10px; display: block; background: var(--surface); }
   .reference-action.locked { pointer-events: none; opacity: .5; }
   .option-header { display: flex; justify-content: space-between; align-items: center; width: 100%; cursor: pointer; }
   .option-text { flex-grow: 1; font-size: 0.95rem; }
@@ -1782,7 +1786,7 @@
     if (!container) return;
     container.innerHTML = '';
 
-    const STYLE_GROUPS = ['ROOTS', 'Beiersdorf', 'Sonstige'];
+    const STYLE_GROUPS = ['ROOTS', 'Beiersdorf', 'LIDL', 'Sonstige'];
     const ordered = STYLE_GROUPS.flatMap(group => styleOptions
       .map((opt, index) => ({ opt, index }))
       .filter(({ opt }) => (opt.group || 'Sonstige') === group));
@@ -1828,6 +1832,19 @@
     if (triggerText) triggerText.textContent = (styleOptions.find(o => o.id === currentStyleValue) || styleOptions[0]).name;
   }
 
+  // Zeigt die Beispielbilder des gewählten Stils, solange noch keine Bilder generiert sind.
+  function renderStylePreview() {
+    const gallery = document.getElementById('gallery');
+    if (!gallery || gallery.querySelector('.gallery-item')) return;
+    const opt = styleOptions.find(o => o.id === currentStyleValue);
+    const images = opt?.previewImages?.length ? opt.previewImages : opt?.seriesRefs?.length ? opt.seriesRefs : (opt?.masterUrl ? [opt.masterUrl] : []);
+    if (!images.length) {
+      gallery.innerHTML = '<div class="placeholder"><i class="fa-solid fa-image fa-2x"></i></div>';
+      return;
+    }
+    gallery.innerHTML = `<div class="style-preview"><div class="style-preview-title">Stilvorschau · ${escapeStyleHtml(opt.name)}</div><div class="style-preview-grid">${images.map(src => `<img src="${escapeStyleHtml(src)}" alt="" loading="lazy">`).join('')}</div></div>`;
+  }
+
   function selectStyleOption(id, e) {
     if (e) e.stopPropagation();
     const wrapper = document.getElementById('style-dropdown');
@@ -1840,6 +1857,7 @@
       document.getElementById('selected-style-text').textContent = opt.name;
       if (opt.aspect) setAspectValue(opt.aspect);
       updatePortraitMode();
+      renderStylePreview();
       if (id === 'custom') openCustomStyleEditor();
     }
     wrapper.classList.remove('open');
@@ -2016,10 +2034,11 @@
   let styleOptions = [
     {
       id: "esmara",
-      name: "Lidl Esmara Fashion Kampagne",
+      name: "Esmara Fashion Kampagne",
+      group: "LIDL",
       prompt: "STIL: Moderne, hochwertige Fashion-Kampagne (inspirierte Ästhetik).\nVisual Identity (STRICT):\n- Farbpalette: warme Beige-Töne, weiches Creme, subtile rote Akzente (#d50000)\n- Beleuchtung: weiches diffuses Studiolicht, warm, elegant\n- Stimmung: premium, ruhig, minimalistisch\n- Materialien: weiche Stoffe, natürliche Texturen\n- Hintergrund: clean, neutral, leicht unscharf\nPhotography Style: High-End Editorial, flache Schärfentiefe.\nVERBOTEN: Schreibe KEINESFALLS die Wörter 'Esmara' oder 'Lidl' in das Bild. Generiere KEINE Logos oder Markennamen."
     },
-    { id: "beiersdorf", name: "Beiersdorf Hero-Visual", group: "Beiersdorf", aspect: "9:16", prompt: `STIL: Beiersdorf Hero-Visual für NIVEA, Eucerin und Labello. Dramatischer, cineastischer 3D-Look.
+    { id: "beiersdorf", name: "Hero Visual", group: "Beiersdorf", aspect: "9:16", prompt: `STIL: Beiersdorf Hero-Visual für NIVEA, Eucerin und Labello. Dramatischer, cineastischer 3D-Look.
 Bildaufbau:
 - Zentrales kreisförmiges Portal mit leuchtenden Neonringen, darin die Produktgruppe aus NIVEA, Eucerin und Labello
 - Fünf Icons sauber und mit großzügigem Abstand um das Portal angeordnet, keines angeschnitten
@@ -2858,6 +2877,7 @@ FINAL CONSTRAINTS:
 
   document.addEventListener('DOMContentLoaded', () => {
     renderCustomDropdown();
+    renderStylePreview();
     setupPortraitInput();
   });
 

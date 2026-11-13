@@ -2,7 +2,7 @@
 window.ROOTS_MASTER_STYLES = [
  {
   "id": "master-li-roots",
-  "name": "LinkedIn Beitrag ROOTS",
+  "name": "LinkedIn Visual",
   "aspect": "1:1",
   "lockAspect": true,
   "seriesRefs": [
@@ -15,7 +15,12 @@ window.ROOTS_MASTER_STYLES = [
   "rootsLogo": true,
   "group": "ROOTS",
   "lockStyleRef": true,
-  "lockLogoRef": true
+  "lockLogoRef": true,
+  "previewImages": [
+   "assets/master-styles/li-roots-preview-1.jpg",
+   "assets/master-styles/li-roots-preview-2.jpg",
+   "assets/master-styles/li-roots-preview-3.jpg"
+  ]
  },
  {
   "id": "master-li-privat",
@@ -34,7 +39,7 @@ window.ROOTS_MASTER_STYLES = [
  },
  {
   "id": "master-bdf",
-  "name": "BDF Asset",
+  "name": "Asset",
   "aspect": "4:5",
   "lockAspect": false,
   "seriesRefs": [
