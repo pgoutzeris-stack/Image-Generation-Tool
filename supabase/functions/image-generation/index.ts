@@ -103,7 +103,7 @@ function buildSystemInstruction(
   return sections.join("\n\n");
 }
 
-Deno.serve(async (req: Request) => {
+async function handleRequest(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return errorResponse("Method not allowed", 405);
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
@@ -138,7 +138,8 @@ Deno.serve(async (req: Request) => {
       image_count: imageCount, duration_ms: Date.now() - startedAt,
       error_code: errorCode || null,
     });
-    if (error) throw new Error(`Usage tracking failed: ${error.message}`);
+    // Verbrauchs-Logging darf eine Generierung nie abbrechen.
+    if (error) console.error(`Usage tracking failed: ${error.message}`);
   }
 
   async function isAdmin() {
@@ -480,4 +481,13 @@ Deno.serve(async (req: Request) => {
     status: googleRes.status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+Deno.serve(async (req: Request) => {
+  try {
+    return await handleRequest(req);
+  } catch (error) {
+    console.error("Unhandled image-generation error:", error);
+    return errorResponse(error instanceof Error ? error.message : "Interner Fehler", 500);
+  }
 });
