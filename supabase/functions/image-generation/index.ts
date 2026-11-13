@@ -52,6 +52,36 @@ async function getUser(req: Request) {
   return data.user;
 }
 
+// Referenzbilder der Stile liegen auf GitHub Pages; die Funktion lädt sie selbst,
+// damit die Anfrage klein bleibt (Anfragen über ca. 512 KB hängen am Gateway).
+const PAGES_BASE = "https://pgoutzeris-stack.github.io/Image-Generation-Tool/";
+const ASSET_PATH_RE = /^assets\/(master-styles\/[a-z0-9-]+|portrait-master(-hell)?)\.jpg$/;
+const assetCache = new Map<string, { data: string; mimeType: string }>();
+
+function bytesToBase64(bytes: Uint8Array) {
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  return btoa(binary);
+}
+
+async function loadAsset(path: unknown) {
+  const clean = String(path ?? "").split("?")[0];
+  if (!ASSET_PATH_RE.test(clean)) throw new Error("Referenzpfad nicht erlaubt.");
+  const cached = assetCache.get(clean);
+  if (cached) return cached;
+  const res = await fetch(PAGES_BASE + clean);
+  if (!res.ok) throw new Error(`Referenzbild nicht ladbar (${res.status}).`);
+  const asset = { data: bytesToBase64(new Uint8Array(await res.arrayBuffer())), mimeType: "image/jpeg" };
+  assetCache.set(clean, asset);
+  return asset;
+}
+
+async function loadAssets(list: unknown, max: number) {
+  const paths = Array.isArray(list) ? list.slice(0, max) : [];
+  return await Promise.all(paths.map(loadAsset));
+}
+
 function readReference(body: Record<string, unknown>, dataKey: string, mimeKey: string) {
   const data = typeof body[dataKey] === "string" ? body[dataKey] : "";
   const mimeType = typeof body[mimeKey] === "string" ? body[mimeKey] : "";
@@ -380,6 +410,8 @@ async function handleRequest(req: Request): Promise<Response> {
       const ref = readReference((item ?? {}) as Record<string, unknown>, "data", "mimeType");
       if (ref) seriesReferences.push(ref);
     }
+    for (const asset of await loadAssets(body.inputImagePaths, 2 - inputImages.length)) inputImages.push(asset);
+    for (const asset of await loadAssets(body.seriesRefPaths, 3 - seriesReferences.length)) seriesReferences.push(asset);
   } catch (error) {
     return errorResponse(error instanceof Error ? error.message : "Referenzbild ist ungültig.", 400);
   }

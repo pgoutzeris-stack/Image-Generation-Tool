@@ -2612,6 +2612,35 @@ FINAL CONSTRAINTS:
     return { ok: sd < 40 && lum < 140, lum: Math.round(lum), sd: Math.round(sd) };
   }
 
+  // Verkleinert ein Bild, bis sein Base64 unter budget Zeichen liegt (JPEG, bei keepPng PNG).
+  async function fitImageToBudget(base64, mimeType, budget, keepPng = false, startEdge = 1536) {
+    if (base64.length <= budget && (!keepPng || mimeType === 'image/png')) return { data: base64, mimeType };
+    const img = await new Promise((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error('Bild konnte nicht verkleinert werden.'));
+      el.src = `data:${mimeType};base64,${base64}`;
+    });
+    const edges = [startEdge, 1280, 1024, 896, 768, 640, 512, 384].filter(e => e <= startEdge);
+    const qualities = keepPng ? [undefined] : [0.86, 0.78, 0.7, 0.62];
+    const outMime = keepPng ? 'image/png' : 'image/jpeg';
+    let last = null;
+    for (const edge of edges) {
+      const scale = Math.min(1, edge / Math.max(img.naturalWidth, img.naturalHeight));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+      const ctx = canvas.getContext('2d');
+      if (!keepPng) { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      for (const q of qualities) {
+        last = canvas.toDataURL(outMime, q).split(',')[1];
+        if (last.length <= budget) return { data: last, mimeType: outMime };
+      }
+    }
+    return { data: last, mimeType: outMime };
+  }
+
   async function generateWithRetry(promptText, idx, total, modelMode, aspect) {
     var models;
     if (modelMode === 'nbpro') { models = [{ id: MODEL_PRO, label: 'Nano Banana Pro', maxRetries: 3 }]; }
@@ -2652,12 +2681,15 @@ FINAL CONSTRAINTS:
         try {
           const styleOpt = styleOptions.find(o => o.id === currentStyleValue);
           const stylePrompt = styleOpt ? styleOpt.prompt : '';
+          // Anfrage muss unter ca. 512 KB bleiben: Stilbilder lädt die Edge Function selbst,
+          // hochgeladene Bilder werden auf ein Budget komprimiert.
           const inputImages = styleOpt?.needsPortraitInput
-            ? [{ data: portraitInput.data, mimeType: portraitInput.mimeType }, await loadPortraitMaster(styleOpt.masterUrl)]
+            ? [await fitImageToBudget(portraitInput.data, portraitInput.mimeType, 240000)]
             : [];
-          const seriesReferences = styleOpt?.seriesRefs?.length
-            ? await Promise.all(styleOpt.seriesRefs.map(loadPortraitMaster))
-            : [];
+          const inputImagePaths = styleOpt?.needsPortraitInput && styleOpt.masterUrl ? [styleOpt.masterUrl] : [];
+          const seriesRefPaths = styleOpt?.seriesRefs?.length ? styleOpt.seriesRefs : [];
+          const styleRefSend = styleReference ? await fitImageToBudget(styleReference.data, styleReference.mimeType, 150000) : null;
+          const logoRefSend = logoReference ? await fitImageToBudget(logoReference.data, logoReference.mimeType, 100000, true) : null;
 
           const result = await callImageFunction('generate_image', {
             modelId: model.id,
@@ -2666,13 +2698,14 @@ FINAL CONSTRAINTS:
             stylePrompt,
             aspect,
             styleId: currentStyleValue || '',
-            styleReferenceData: styleReference?.data || null,
-            styleReferenceMimeType: styleReference?.mimeType || null,
-            logoReferenceData: logoReference?.data || null,
-            logoReferenceMimeType: logoReference?.mimeType || null,
+            styleReferenceData: styleRefSend?.data || null,
+            styleReferenceMimeType: styleRefSend?.mimeType || null,
+            logoReferenceData: logoRefSend?.data || null,
+            logoReferenceMimeType: logoRefSend?.mimeType || null,
             logoPlacement: logoReference ? logoPlacement : null,
             inputImages,
-            seriesReferences,
+            inputImagePaths,
+            seriesRefPaths,
             deferHistory: Boolean(styleOpt?.ciCheck)
           });
 
@@ -2694,9 +2727,11 @@ FINAL CONSTRAINTS:
               }
             }
             const finalData = styleOpt.rootsLogo ? await compositeRootsLogo(result.imageData, rawMime, corner?.lum ?? 0) : result.imageData;
+            const checkImage = await fitImageToBudget(result.imageData, rawMime, 90000, false, 768);
+            const historyImage = await fitImageToBudget(finalData, styleOpt.rootsLogo ? 'image/png' : rawMime, 320000);
             const verdict = await callImageFunction('finalize_image', {
-              rawImageData: result.imageData, rawMimeType: rawMime,
-              finalImageData: finalData, finalMimeType: styleOpt.rootsLogo ? 'image/png' : rawMime,
+              rawImageData: checkImage.data, rawMimeType: checkImage.mimeType,
+              finalImageData: historyImage.data, finalMimeType: historyImage.mimeType,
               rootsLogo: Boolean(styleOpt.rootsLogo),
               promptText, modelId: model.id, modelLabel: model.label, aspect, styleId: currentStyleValue || ''
             });
