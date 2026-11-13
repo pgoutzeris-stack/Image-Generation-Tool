@@ -68,6 +68,7 @@ function buildSystemInstruction(
   hasLogoReference: boolean,
   logoPlacement: string,
   inputImageCount = 0,
+  seriesReferenceCount = 0,
 ) {
   const sections = [
     "Du bist ein professioneller Art Director und Bildgenerator. Erzeuge genau das vom Nutzer beschriebene Motiv.",
@@ -79,6 +80,11 @@ function buildSystemInstruction(
   } else if (stylePrompt) {
     sections.push(
       `VERBINDLICHE STILVORGABE:\n${stylePrompt}\nDie Stilvorgabe bestimmt ausschließlich die visuelle Ausführung. Sie darf Motiv, Fakten und ausdrückliche Anforderungen des Nutzers nicht ersetzen.`,
+    );
+  }
+  if (seriesReferenceCount > 0) {
+    sections.push(
+      `SERIENREFERENZEN: Die ${seriesReferenceCount} als Serienreferenz markierten Bilder sind freigegebene Beispiele dieser Bildserie. Halte ihr Qualitätsniveau, ihre Bildsprache, Lichtführung, Farbwelt und ihren Bildaufbau ein, damit das neue Bild erkennbar zur selben Serie gehört. Was genau übernommen wird, regelt die verbindliche Stilvorgabe. Übernimm daraus weder Motive noch Marken, Logos, Wasserzeichen oder Schrift, sofern die Stilvorgabe das nicht ausdrücklich verlangt.`,
     );
   }
   if (hasStyleReference) {
@@ -263,12 +269,89 @@ Deno.serve(async (req: Request) => {
     }
   }
 
+  if (action === "finalize_image") {
+    // ROOTS-CI-Prüfung des Rohbilds (vor Logo-Einsatz) mit günstigem Flash-Lite-Modell, danach Verlaufseintrag.
+    let rawImage;
+    let finalImage;
+    try {
+      rawImage = readReference(body, "rawImageData", "rawMimeType");
+      finalImage = readReference(body, "finalImageData", "finalMimeType");
+    } catch (error) {
+      return errorResponse(error instanceof Error ? error.message : "Bild ist ungültig.", 400);
+    }
+    if (!rawImage || !finalImage) return errorResponse("Bild fehlt", 400);
+    const rootsLogoStyle = body.rootsLogo === true;
+    let apiKey = "";
+    try { apiKey = await readGoogleApiKey(); } catch { /* handled below */ }
+    if (!apiKey) return errorResponse("Google API-Key nicht hinterlegt", 503);
+
+    const checkPrompt = [
+      "Du prüfst ein KI-generiertes Bild gegen die ROOTS-Corporate-Identity. Antworte nur mit JSON.",
+      "roots_mark: true, wenn irgendwo im Bild das Wort ROOTS (auch RCOTS, R∞TS, ähnliche Schreibweisen), ein ROOTS-Logo, ein Unendlich-Zeichen als Logo oder eine Nachahmung davon zu sehen ist.",
+      rootsLogoStyle
+        ? "corner_clear: immer true. foreign_logo: true, wenn echte oder erfundene Markenlogos anderer Firmen sichtbar sind."
+        : "corner_clear: immer true. foreign_logo: immer false.",
+      "reason: ein kurzer deutscher Satz.",
+    ].join("\n");
+    const checkStartedAt = Date.now();
+    const checkRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${encodeURIComponent(apiKey)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: checkPrompt }, { inlineData: rawImage }] }],
+          generationConfig: {
+            temperature: 0,
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: "OBJECT",
+              properties: {
+                roots_mark: { type: "BOOLEAN" },
+                corner_clear: { type: "BOOLEAN" },
+                foreign_logo: { type: "BOOLEAN" },
+                reason: { type: "STRING" },
+              },
+              required: ["roots_mark", "corner_clear", "foreign_logo", "reason"],
+            },
+          },
+        }),
+      },
+    );
+    const checkText = await checkRes.text();
+    let checkParsed: Record<string, any> = {};
+    try { checkParsed = JSON.parse(checkText); } catch { /* ignore */ }
+    await logUsage("ci_check", "gemini-2.5-flash-lite", checkParsed, checkRes.ok, checkStartedAt);
+    let verdict: Record<string, unknown> | null = null;
+    try { verdict = JSON.parse(checkParsed?.candidates?.[0]?.content?.parts?.[0]?.text ?? ""); } catch { /* ignore */ }
+    if (!checkRes.ok || !verdict) return jsonResponse({ ok: false, checked: false, reason: "CI-Prüfung nicht erreichbar" });
+    const ok = verdict.roots_mark === false && verdict.corner_clear !== false && verdict.foreign_logo !== true;
+
+    if (ok) {
+      const { data: profile } = await admin.schema("users").from("profiles").select("full_name").eq("id", authenticatedUser.id).maybeSingle();
+      const { error: historyError } = await admin.from("image_gen_history").insert({
+        user_id: authenticatedUser.id,
+        user_name: profile?.full_name || authenticatedUser.email?.split("@")[0] || "Unbekannt",
+        user_email: authenticatedUser.email || "",
+        prompt: String(body.promptText ?? "").slice(0, 6000),
+        model_id: String(body.modelId ?? "").slice(0, 100),
+        model_label: String(body.modelLabel ?? "").slice(0, 100),
+        aspect: ALLOWED_ASPECTS.has(String(body.aspect)) ? String(body.aspect) : "1:1",
+        style_id: String(body.styleId ?? "").slice(0, 100) || null,
+        image_data: finalImage.data,
+        mime_type: finalImage.mimeType,
+      });
+      if (historyError) console.error("History save failed:", historyError.message);
+    }
+    return jsonResponse({ ok, checked: true, ...verdict });
+  }
+
   if (action !== "generate_image") return errorResponse("Unknown action", 400);
 
   const modelId = String(body.modelId ?? "");
   const modelLabel = String(body.modelLabel ?? modelId).slice(0, 100);
   const promptText = String(body.promptText ?? "").trim().slice(0, 6000);
-  const stylePrompt = String(body.stylePrompt ?? "").trim().slice(0, 8000);
+  const stylePrompt = String(body.stylePrompt ?? "").trim().slice(0, 16000);
   const styleId = String(body.styleId ?? "").slice(0, 100);
   const requestedAspect = String(body.aspect ?? "1:1");
   const aspect = ALLOWED_ASPECTS.has(requestedAspect) ? requestedAspect : "1:1";
@@ -281,6 +364,7 @@ Deno.serve(async (req: Request) => {
   let styleReference;
   let logoReference;
   const inputImages: Array<{ data: string; mimeType: string }> = [];
+  const seriesReferences: Array<{ data: string; mimeType: string }> = [];
   try {
     styleReference = readReference(body, "styleReferenceData", "styleReferenceMimeType")
       || readReference(body, "refImageData", "refImageMimeType");
@@ -289,6 +373,11 @@ Deno.serve(async (req: Request) => {
     for (const item of rawInputs) {
       const ref = readReference((item ?? {}) as Record<string, unknown>, "data", "mimeType");
       if (ref) inputImages.push(ref);
+    }
+    const rawSeries = Array.isArray(body.seriesReferences) ? body.seriesReferences.slice(0, 3) : [];
+    for (const item of rawSeries) {
+      const ref = readReference((item ?? {}) as Record<string, unknown>, "data", "mimeType");
+      if (ref) seriesReferences.push(ref);
     }
   } catch (error) {
     return errorResponse(error instanceof Error ? error.message : "Referenzbild ist ungültig.", 400);
@@ -305,6 +394,10 @@ Deno.serve(async (req: Request) => {
   const parts: Array<Record<string, unknown>> = [{ text: `BILDAUFTRAG:\n${promptText}` }];
   inputImages.forEach((image, index) => {
     parts.push({ text: `Image ${index + 1}:` });
+    parts.push({ inlineData: image });
+  });
+  seriesReferences.forEach((image, index) => {
+    parts.push({ text: `SERIENREFERENZ ${index + 1}:` });
     parts.push({ inlineData: image });
   });
   if (styleReference) {
@@ -331,6 +424,7 @@ Deno.serve(async (req: Request) => {
               Boolean(logoReference),
               logoPlacement,
               inputImages.length,
+              seriesReferences.length,
             ),
           }],
         },
@@ -356,7 +450,7 @@ Deno.serve(async (req: Request) => {
         (part: { inlineData?: { data?: string } }) => part.inlineData?.data,
       ) as { inlineData: { data: string; mimeType?: string } } | undefined;
 
-      if (imagePart?.inlineData?.data) {
+      if (imagePart?.inlineData?.data && body.deferHistory !== true) {
         const { data: profile } = await admin
           .schema("users")
           .from("profiles")

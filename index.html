@@ -866,6 +866,7 @@
   }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.8"></script>
+  <script src="assets/master-styles.js?v=20261113"></script>
   <script>window.ROOTS_TOKENLESS_EMBED = window.parent !== window && new URLSearchParams(window.location.search).get('authBroker') === 'v1';</script>
 <script src="https://pgoutzeris-stack.github.io/ROOTS_Intranet/roots-user-bridge.js?v=20260728-identity-guard-v1"></script>
 </head>
@@ -1684,6 +1685,8 @@
     document.querySelector('.reference-actions')?.classList.toggle('hidden', active);
     document.body.classList.toggle('portrait-mode', active);
     ['dd-aspect', 'dd-model', 'dd-count'].forEach(id => document.getElementById(id)?.classList.toggle('locked', active));
+    const lockAspect = Boolean(styleOptions.find(o => o.id === currentStyleValue)?.lockAspect);
+    if (lockAspect) document.getElementById('dd-aspect')?.classList.add('locked');
     if (active) {
       document.getElementById('sel-count').value = '1';
       const countWrapper = document.getElementById('dd-count');
@@ -1759,6 +1762,10 @@
     return portraitMasterCache[url];
   }
 
+  function escapeStyleHtml(v) {
+    return String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
   function renderCustomDropdown() {
     const container = document.getElementById('custom-options-container');
     const triggerText = document.getElementById('selected-style-text');
@@ -1781,10 +1788,10 @@
             ${!isCustom ? `<i class="fa-solid fa-pen-ruler" title="Eigenen Stil bearbeiten" onclick="openCustomStyleEditor(); event.stopPropagation();"></i>` : ''}
           </div>
         </div>
-        ${isCustom ? `<div class="option-prompt-preview">${opt.prompt}</div>` : ''}
+        ${isCustom ? `<div class="option-prompt-preview">${escapeStyleHtml(opt.prompt)}</div>` : ''}
         ${isCustom ? `
           <div class="option-edit-area">
-            <textarea placeholder="Prompt bearbeiten...">${opt.prompt}</textarea>
+            <textarea placeholder="Prompt bearbeiten...">${escapeStyleHtml(opt.prompt)}</textarea>
             <button class="btn-save-inline" onclick="saveInlinePrompt(${index}, this, event)">
               <i class="fa-solid fa-floppy-disk"></i> Speichern
             </button>
@@ -2265,6 +2272,7 @@ FINAL CONSTRAINTS:
 * no watermark
 * no background elements from Image 1
 * no unnatural anatomy` },
+    ...(window.ROOTS_MASTER_STYLES || []),
     { id: "photo", name: "Fotorealistisch", prompt: "Photorealistic, high quality, 8k, DSLR" },
     { id: "anime", name: "Anime / Manga", prompt: "Anime / Manga Style, vibrant colors, clean lines" },
     { id: "watercolor", name: "Aquarell Malerei", prompt: "Watercolor painting, expressive brushstrokes" },
@@ -2501,6 +2509,67 @@ FINAL CONSTRAINTS:
     }
   };
 
+  const CI_MAX_REGENERATIONS = 2;
+  const rootsLogoImagePromises = {};
+
+  // Originale ROOTS-Wortmarke: weiß auf dunklem, dunkel auf hellem Grund.
+  function loadRootsLogo(variant) {
+    if (!rootsLogoImagePromises[variant]) {
+      rootsLogoImagePromises[variant] = new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('ROOTS-Logo konnte nicht geladen werden.'));
+        img.src = `assets/roots-logo-${variant}.png?v=20261113`;
+      });
+    }
+    return rootsLogoImagePromises[variant];
+  }
+
+  // Setzt das originale weiße ROOTS-Logo in die Freifläche aus dem Masterprompt: Wortmarke 17 % breit ab x 80 %, vertikal mittig in 89 bis 98 %.
+  async function compositeRootsLogo(base64, mimeType, fieldLum = 0) {
+    const [logo, photo] = await Promise.all([loadRootsLogo(fieldLum < 120 ? 'white' : 'dark'), new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('Bild konnte nicht gelesen werden.'));
+      img.src = `data:${mimeType};base64,${base64}`;
+    })]);
+    const canvas = document.createElement('canvas');
+    canvas.width = photo.naturalWidth;
+    canvas.height = photo.naturalHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(photo, 0, 0);
+    const w = Math.round(canvas.width * 0.17);
+    const h = Math.round(w * logo.naturalHeight / logo.naturalWidth);
+    const x = Math.round(canvas.width * 0.80);
+    const y = Math.round(canvas.height * 0.935 - h / 2);
+    ctx.drawImage(logo, x, y, w, h);
+    return canvas.toDataURL('image/png').split(',')[1];
+  }
+
+  // Misst den Logobereich (x 78 bis 99 %, y 88 bis 99 %): muss ruhig sein; Helligkeit wählt die Logofarbe.
+  async function measureLogoField(base64, mimeType) {
+    const img = await new Promise((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error('Bild konnte nicht gelesen werden.'));
+      el.src = `data:${mimeType};base64,${base64}`;
+    });
+    const x = Math.round(img.naturalWidth * 0.78), y = Math.round(img.naturalHeight * 0.88);
+    const w = Math.round(img.naturalWidth * 0.21), h = Math.round(img.naturalHeight * 0.11);
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, x, y, w, h, 0, 0, w, h);
+    const px = ctx.getImageData(0, 0, w, h).data;
+    let sum = 0, sq = 0, n = 0;
+    for (let i = 0; i < px.length; i += 4) {
+      const l = 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2];
+      sum += l; sq += l * l; n++;
+    }
+    const lum = sum / n, sd = Math.sqrt(Math.max(0, sq / n - lum * lum));
+    return { ok: sd < 40, lum: Math.round(lum), sd: Math.round(sd) };
+  }
+
   async function generateWithRetry(promptText, idx, total, modelMode, aspect) {
     var models;
     if (modelMode === 'nbpro') { models = [{ id: MODEL_PRO, label: 'Nano Banana Pro', maxRetries: 3 }]; }
@@ -2514,6 +2583,7 @@ FINAL CONSTRAINTS:
       ];
     }
 
+    var ciFailures = 0;
     for (var m = 0; m < models.length; m++) {
       var model = models[m];
       var isFallback = m > 0;
@@ -2543,6 +2613,9 @@ FINAL CONSTRAINTS:
           const inputImages = styleOpt?.needsPortraitInput
             ? [{ data: portraitInput.data, mimeType: portraitInput.mimeType }, await loadPortraitMaster(styleOpt.masterUrl)]
             : [];
+          const seriesReferences = styleOpt?.seriesRefs?.length
+            ? await Promise.all(styleOpt.seriesRefs.map(loadPortraitMaster))
+            : [];
 
           const result = await callImageFunction('generate_image', {
             modelId: model.id,
@@ -2556,8 +2629,48 @@ FINAL CONSTRAINTS:
             logoReferenceData: logoReference?.data || null,
             logoReferenceMimeType: logoReference?.mimeType || null,
             logoPlacement: logoReference ? logoPlacement : null,
-            inputImages
+            inputImages,
+            seriesReferences,
+            deferHistory: Boolean(styleOpt?.ciCheck)
           });
+
+          if (result?.imageData && styleOpt?.ciCheck && !batchCancelled) {
+            updateActiveLog(activeLog, `Bild ${idx}/${total} · ROOTS-CI-Prüfung…`);
+            const rawMime = result.mimeType || 'image/png';
+            let corner = null;
+            if (styleOpt.rootsLogo) {
+              corner = await measureLogoField(result.imageData, rawMime);
+              if (!corner.ok) {
+                ciFailures = (ciFailures || 0) + 1;
+                const why = `Bereich unten rechts nicht frei (Streuung ${corner.sd})`;
+                if (ciFailures <= CI_MAX_REGENERATIONS) {
+                  completeActiveLog(activeLog, `Bild ${idx} · ${why} · generiere neu`, 'warn');
+                  attempt--; continue;
+                }
+                completeActiveLog(activeLog, `Bild ${idx} · ✗ ${why}`, 'error');
+                return null;
+              }
+            }
+            const finalData = styleOpt.rootsLogo ? await compositeRootsLogo(result.imageData, rawMime, corner?.lum ?? 0) : result.imageData;
+            const verdict = await callImageFunction('finalize_image', {
+              rawImageData: result.imageData, rawMimeType: rawMime,
+              finalImageData: finalData, finalMimeType: styleOpt.rootsLogo ? 'image/png' : rawMime,
+              rootsLogo: Boolean(styleOpt.rootsLogo),
+              promptText, modelId: model.id, modelLabel: model.label, aspect, styleId: currentStyleValue || ''
+            });
+            if (!verdict?.ok) {
+              const why = verdict?.reason || 'CI-Verstoß';
+              ciFailures = (ciFailures || 0) + 1;
+              if (ciFailures <= CI_MAX_REGENERATIONS) {
+                completeActiveLog(activeLog, `Bild ${idx} · CI-Prüfung nicht bestanden (${why}) · generiere neu`, 'warn');
+                attempt--; continue;
+              }
+              completeActiveLog(activeLog, `Bild ${idx} · ✗ CI-Prüfung nicht bestanden: ${why}`, 'error');
+              return null;
+            }
+            result.imageData = finalData;
+            result.mimeType = styleOpt.rootsLogo ? 'image/png' : rawMime;
+          }
 
           if (batchCancelled) { completeActiveLog(activeLog, "Gestoppt.", 'warn'); return null; }
           if (result?.imageData) {
