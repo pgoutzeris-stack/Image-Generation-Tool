@@ -17,9 +17,9 @@ window.ROOTS_MASTER_STYLES = [
   "lockStyleRef": true,
   "lockLogoRef": true,
   "previewImages": [
-   "assets/master-styles/li-roots-preview-1.jpg?v=2",
-   "assets/master-styles/li-roots-preview-2.jpg?v=2",
-   "assets/master-styles/li-roots-preview-3.jpg?v=2"
+   "assets/master-styles/li-roots-preview-1.jpg?v=20261113b",
+   "assets/master-styles/li-roots-preview-2.jpg?v=20261113b",
+   "assets/master-styles/li-roots-preview-3.jpg?v=20261113b"
   ]
  },
  {
