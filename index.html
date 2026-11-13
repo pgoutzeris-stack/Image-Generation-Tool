@@ -2512,7 +2512,7 @@ FINAL CONSTRAINTS:
   const CI_MAX_REGENERATIONS = 2;
   const rootsLogoImagePromises = {};
 
-  // Originale ROOTS-Wortmarke: weiß auf dunklem, dunkel auf hellem Grund.
+  // Originale ROOTS-Wortmarke, bei diesem Stil immer weiß.
   function loadRootsLogo(variant) {
     if (!rootsLogoImagePromises[variant]) {
       rootsLogoImagePromises[variant] = new Promise((resolve, reject) => {
@@ -2527,7 +2527,7 @@ FINAL CONSTRAINTS:
 
   // Setzt das originale weiße ROOTS-Logo in die Freifläche aus dem Masterprompt: Wortmarke 17 % breit ab x 80 %, vertikal mittig in 89 bis 98 %.
   async function compositeRootsLogo(base64, mimeType, fieldLum = 0) {
-    const [logo, photo] = await Promise.all([loadRootsLogo(fieldLum < 120 ? 'white' : 'dark'), new Promise((resolve, reject) => {
+    const [logo, photo] = await Promise.all([loadRootsLogo('white'), new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => resolve(img);
       img.onerror = () => reject(new Error('Bild konnte nicht gelesen werden.'));
@@ -2546,7 +2546,7 @@ FINAL CONSTRAINTS:
     return canvas.toDataURL('image/png').split(',')[1];
   }
 
-  // Misst den Logobereich (x 78 bis 99 %, y 88 bis 99 %): muss ruhig sein; Helligkeit wählt die Logofarbe.
+  // Misst den Logobereich (x 78 bis 99 %, y 88 bis 99 %): muss ruhig und dunkel genug für das weiße Logo sein.
   async function measureLogoField(base64, mimeType) {
     const img = await new Promise((resolve, reject) => {
       const el = new Image();
@@ -2567,7 +2567,7 @@ FINAL CONSTRAINTS:
       sum += l; sq += l * l; n++;
     }
     const lum = sum / n, sd = Math.sqrt(Math.max(0, sq / n - lum * lum));
-    return { ok: sd < 40, lum: Math.round(lum), sd: Math.round(sd) };
+    return { ok: sd < 40 && lum < 140, lum: Math.round(lum), sd: Math.round(sd) };
   }
 
   async function generateWithRetry(promptText, idx, total, modelMode, aspect) {
@@ -2642,7 +2642,7 @@ FINAL CONSTRAINTS:
               corner = await measureLogoField(result.imageData, rawMime);
               if (!corner.ok) {
                 ciFailures = (ciFailures || 0) + 1;
-                const why = `Bereich unten rechts nicht frei (Streuung ${corner.sd})`;
+                const why = corner.sd >= 40 ? `Bereich unten rechts nicht frei (Streuung ${corner.sd})` : `Bereich unten rechts zu hell für weißes Logo (Helligkeit ${corner.lum})`;
                 if (ciFailures <= CI_MAX_REGENERATIONS) {
                   completeActiveLog(activeLog, `Bild ${idx} · ${why} · generiere neu`, 'warn');
                   attempt--; continue;
