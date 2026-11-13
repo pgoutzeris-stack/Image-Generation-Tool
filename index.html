@@ -2557,12 +2557,25 @@ FINAL CONSTRAINTS:
   // Originale ROOTS-Wortmarke, bei diesem Stil immer weiß.
   function loadRootsLogo(variant) {
     if (!rootsLogoImagePromises[variant]) {
-      rootsLogoImagePromises[variant] = new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = () => reject(new Error('ROOTS-Logo konnte nicht geladen werden.'));
-        img.src = `assets/roots-logo-${variant}.png?v=20261113b`;
-      });
+      // Als data:-URL laden: WebKit markiert das Canvas sonst als unsicher ("The operation is insecure").
+      rootsLogoImagePromises[variant] = (async () => {
+        const resp = await fetch(`assets/roots-logo-${variant}.png?v=20261113c`);
+        if (!resp.ok) throw new Error('ROOTS-Logo konnte nicht geladen werden.');
+        const blob = await resp.blob();
+        const dataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result));
+          reader.onerror = () => reject(new Error('ROOTS-Logo konnte nicht gelesen werden.'));
+          reader.readAsDataURL(blob);
+        });
+        return await new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.onerror = () => reject(new Error('ROOTS-Logo konnte nicht geladen werden.'));
+          img.src = dataUrl;
+        });
+      })();
+      rootsLogoImagePromises[variant].catch(() => { delete rootsLogoImagePromises[variant]; });
     }
     return rootsLogoImagePromises[variant];
   }
