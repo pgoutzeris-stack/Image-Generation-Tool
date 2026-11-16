@@ -212,6 +212,7 @@
   .custom-option.selected { font-weight: bold; background: #eef2ff; }
   .custom-option.selected .option-text { color: var(--brand); }
   
+  .style-new-pill { display:inline-block; margin-left:6px; padding:1px 7px; border-radius:999px; background:var(--brand,#206efb); color:#fff; font-size:.62rem; font-weight:700; letter-spacing:.03em; vertical-align:middle; }
   .custom-option-group { padding: 10px 16px 6px; font-size: .7rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); background: #f8fafc; border-bottom: 1px solid #f1f5f9; }
   .style-preview { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 10px; }
   .style-preview-title { font-size: .78rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
@@ -876,7 +877,7 @@
   }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.8"></script>
-  <script src="assets/master-styles.js?v=20261116a"></script>
+  <script src="assets/master-styles.js?v=20261116b"></script>
   <script>window.ROOTS_TOKENLESS_EMBED = window.parent !== window && new URLSearchParams(window.location.search).get('authBroker') === 'v1';</script>
 <script src="https://pgoutzeris-stack.github.io/ROOTS_Intranet/roots-user-bridge.js?v=20260728-identity-guard-v1"></script>
 </head>
@@ -1812,7 +1813,7 @@
 
       div.innerHTML = `
         <div class="option-header" onclick="selectStyleOption('${opt.id}', event)">
-          <span class="option-text">${opt.name}</span>
+          <span class="option-text">${opt.name}${opt.isNew ? ' <span class="style-new-pill">Neu</span>' : ''}</span>
           <div class="option-actions ${isCustom ? '' : 'custom-row-action'}">
             ${isCustom ? `<i class="fa-solid fa-eye info-icon" title="Prompt anzeigen" onclick="togglePromptPreview(this, event)"></i>` : ''}
             ${isCustom ? `<i class="fa-solid fa-pen edit-icon" title="Prompt bearbeiten" onclick="togglePromptEdit(this, event)"></i>` : ''}
@@ -3109,7 +3110,8 @@ FINAL CONSTRAINTS:
     card.dataset.historyData = JSON.stringify({
       prompt: item.prompt, model_id: item.model_id, model_label: item.model_label || item.model_id,
       aspect: item.aspect, style_id: item.style_id,
-      mime_type: item.mime_type, user_name: item.user_name, created_at: item.created_at
+      mime_type: item.mime_type, user_name: item.user_name, created_at: item.created_at,
+      user_avatar_url: item.user_avatar_url || null, cost_usd: item.cost_usd ?? null
     });
     return card;
   }
