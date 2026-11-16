@@ -846,6 +846,10 @@
   .history-detail-meta-item { background:var(--surface-2,#f8fafc); border-radius:8px; padding:.55rem .75rem; }
   .history-detail-meta-item-label { font-size:.65rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--muted,#94a3b8); margin-bottom:.2rem; }
   .history-detail-meta-item-value { font-size:.8rem; font-weight:600; color:var(--ink,#0f172a); }
+  .history-detail-meta-wide { grid-column: 1 / -1; }
+  .history-detail-person { display:flex; align-items:center; gap:.6rem; }
+  .history-detail-avatar { width:32px; height:32px; border-radius:50%; object-fit:cover; flex-shrink:0; background:var(--surface,#eef2ff); }
+  .history-detail-avatar-fallback { display:inline-flex; align-items:center; justify-content:center; font-size:.72rem; font-weight:700; color:var(--brand,#206efb); }
   .history-detail-footer { padding:.9rem 1.25rem 1.1rem; border-top:1px solid var(--line,#e2e8f0); display:flex; flex-direction:column; gap:.5rem; flex-shrink:0; }
   .history-detail-btn { width:100%; height:42px; border-radius:10px; font-size:.85rem; font-weight:600; font-family:inherit; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:.5rem; transition:all .15s; }
   .history-detail-btn.primary { background:var(--brand,#206efb); color:#fff; border:none; }
@@ -2662,6 +2666,7 @@ FINAL CONSTRAINTS:
     }
 
     var ciFailures = 0;
+    var costSoFar = 0; // USD aller Versuche dieses Bildes, landet im Verlauf
     for (var m = 0; m < models.length; m++) {
       var model = models[m];
       var isFallback = m > 0;
@@ -2713,8 +2718,11 @@ FINAL CONSTRAINTS:
             inputImages,
             inputImagePaths,
             seriesRefPaths,
+            priorCostUsd: costSoFar,
             deferHistory: Boolean(styleOpt?.ciCheck)
           });
+
+          costSoFar += Number(result?.raw?._costUsd) || 0;
 
           if (result?.imageData && styleOpt?.ciCheck && !batchCancelled) {
             const rawMime = result.mimeType || 'image/png';
@@ -2742,6 +2750,7 @@ FINAL CONSTRAINTS:
                   rawImageData: checkImage.data, rawMimeType: checkImage.mimeType,
                   finalImageData: historyImage.data, finalMimeType: historyImage.mimeType,
                   rootsLogo: Boolean(styleOpt.rootsLogo),
+                  generationCostUsd: costSoFar,
                   promptText, modelId: model.id, modelLabel: model.label, aspect, styleId: currentStyleValue || ''
                 });
               } catch (checkError) {
@@ -3195,6 +3204,21 @@ FINAL CONSTRAINTS:
   set('hdp-date2',  date);
   set('hdp-model2', data.model_label || data.model_id);
   set('hdp-aspect', data.aspect);
+  const cost = Number(data.cost_usd);
+  set('hdp-cost', data.cost_usd == null ? 'Nicht erfasst' : cost.toLocaleString('de-DE', { minimumFractionDigits: 3, maximumFractionDigits: 3 }) + ' $');
+  const styleName = (styleOptions.find(o => o.id === data.style_id) || {}).name;
+  set('hdp-style', styleName || (data.style_id ? data.style_id : 'Ohne Vorlage'));
+  const avatar = document.getElementById('hdp-avatar');
+  const fallback = document.getElementById('hdp-avatar-fallback');
+  const initials = String(data.user_name || '?').split(/\s+/).map(w => w[0] || '').join('').slice(0, 2).toUpperCase();
+  if (fallback) { fallback.textContent = initials; fallback.style.display = ''; }
+  if (avatar) {
+    avatar.style.display = 'none';
+    avatar.onload = () => { avatar.style.display = ''; if (fallback) fallback.style.display = 'none'; };
+    avatar.onerror = () => { avatar.style.display = 'none'; if (fallback) fallback.style.display = ''; };
+    avatar.src = data.user_avatar_url || '';
+    if (!data.user_avatar_url) avatar.removeAttribute('src');
+  }
 
   // Buttons verdrahten
   const btnLoad = document.getElementById('hdp-btn-load');
@@ -3647,9 +3671,21 @@ window.RootsUser = window.RootsUser || {
     <div>
       <div class="history-detail-section-label">Details</div>
       <div class="history-detail-meta-grid">
-        <div class="history-detail-meta-item">
+        <div class="history-detail-meta-item history-detail-meta-wide">
           <div class="history-detail-meta-item-label">Erstellt von</div>
-          <div class="history-detail-meta-item-value" id="hdp-user">-</div>
+          <div class="history-detail-person">
+            <img id="hdp-avatar" class="history-detail-avatar" alt="" style="display:none">
+            <span id="hdp-avatar-fallback" class="history-detail-avatar history-detail-avatar-fallback"></span>
+            <span class="history-detail-meta-item-value" id="hdp-user">-</span>
+          </div>
+        </div>
+        <div class="history-detail-meta-item">
+          <div class="history-detail-meta-item-label">Kosten</div>
+          <div class="history-detail-meta-item-value" id="hdp-cost">-</div>
+        </div>
+        <div class="history-detail-meta-item">
+          <div class="history-detail-meta-item-label">Stilvorlage</div>
+          <div class="history-detail-meta-item-value" id="hdp-style">-</div>
         </div>
         <div class="history-detail-meta-item">
           <div class="history-detail-meta-item-label">Datum</div>

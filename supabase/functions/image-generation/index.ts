@@ -82,6 +82,35 @@ async function loadAssets(list: unknown, max: number) {
   return await Promise.all(paths.map(loadAsset));
 }
 
+// Google-Listenpreise in USD je 1 Mio. Token (Stand 11/2026, ai.google.dev/gemini-api/docs/pricing).
+// image = Bild-Ausgabetokens, text = Text- und Denk-Ausgabetokens.
+const PRICES: Record<string, { input: number; image: number; text: number }> = {
+  "gemini-3-pro-image": { input: 2.0, image: 120.0, text: 12.0 },
+  "gemini-3.1-flash-image": { input: 0.25, image: 60.0, text: 1.5 },
+  "gemini-2.5-flash-image": { input: 0.30, image: 30.0, text: 2.5 },
+  "gemini-2.5-flash-lite": { input: 0.10, image: 0, text: 0.40 },
+  "gemini-2.5-flash": { input: 0.30, image: 0, text: 2.50 },
+};
+
+function costFromUsage(model: string, parsed: Record<string, any> | null) {
+  const price = PRICES[model];
+  const usage = parsed?.usageMetadata;
+  if (!price || !usage) return 0;
+  const input = Number(usage.promptTokenCount || 0);
+  const candidates = Number(usage.candidatesTokenCount || 0);
+  const details = Array.isArray(usage.candidatesTokensDetails) ? usage.candidatesTokensDetails : [];
+  const imageTokens = details
+    .filter((d: { modality?: string }) => d?.modality === "IMAGE")
+    .reduce((sum: number, d: { tokenCount?: number }) => sum + Number(d.tokenCount || 0), 0);
+  const textTokens = Math.max(0, candidates - imageTokens) + Number(usage.thoughtsTokenCount || 0);
+  return (input * price.input + imageTokens * price.image + textTokens * price.text) / 1_000_000;
+}
+
+function clientCost(value: unknown) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.min(n, 5) : 0;
+}
+
 function readReference(body: Record<string, unknown>, dataKey: string, mimeKey: string) {
   const data = typeof body[dataKey] === "string" ? body[dataKey] : "";
   const mimeType = typeof body[mimeKey] === "string" ? body[mimeKey] : "";
@@ -211,13 +240,20 @@ async function handleRequest(req: Request): Promise<Response> {
     const adminUser = await isAdmin();
     let query = admin
       .from("image_gen_history")
-      .select("id,user_id,user_name,user_email,prompt,model_id,model_label,aspect,style_id,mime_type,created_at")
+      .select("id,user_id,user_name,user_email,prompt,model_id,model_label,aspect,style_id,mime_type,created_at,cost_usd")
       .order("created_at", { ascending: false })
       .limit(limit);
     if (!adminUser) query = query.eq("user_id", authenticatedUser.id);
     const { data, error } = await query;
     if (error) return errorResponse(error.message, 500);
-    return jsonResponse({ history: data || [] });
+    const rows = data || [];
+    const userIds = [...new Set(rows.map((r: { user_id: string }) => r.user_id).filter(Boolean))];
+    let avatars: Record<string, string | null> = {};
+    if (userIds.length) {
+      const { data: profiles } = await admin.schema("users").from("profiles").select("id,avatar_url").in("id", userIds);
+      avatars = Object.fromEntries((profiles || []).map((p: { id: string; avatar_url: string | null }) => [p.id, p.avatar_url]));
+    }
+    return jsonResponse({ history: rows.map((r: { user_id: string }) => ({ ...r, user_avatar_url: avatars[r.user_id] ?? null })) });
   }
 
   if (action === "get_history_image") {
@@ -356,6 +392,7 @@ async function handleRequest(req: Request): Promise<Response> {
     if (!checkRes.ok || !verdict) return jsonResponse({ ok: false, checked: false, reason: "CI-Prüfung nicht erreichbar" });
     // Verstoß ist nur ein vom Modell gezeichnetes ROOTS-Zeichen; Fremdmarken sind erlaubt.
     const ok = verdict.roots_mark === false;
+    const totalCost = clientCost(body.generationCostUsd) + costFromUsage("gemini-2.5-flash-lite", checkParsed);
 
     if (ok) {
       const { data: profile } = await admin.schema("users").from("profiles").select("full_name").eq("id", authenticatedUser.id).maybeSingle();
@@ -370,10 +407,11 @@ async function handleRequest(req: Request): Promise<Response> {
         style_id: String(body.styleId ?? "").slice(0, 100) || null,
         image_data: finalImage.data,
         mime_type: finalImage.mimeType,
+        cost_usd: Number(totalCost.toFixed(4)),
       });
       if (historyError) console.error("History save failed:", historyError.message);
     }
-    return jsonResponse({ ok, checked: true, ...verdict });
+    return jsonResponse({ ok, checked: true, ...verdict, costUsd: totalCost });
   }
 
   if (action !== "generate_image") return errorResponse("Unknown action", 400);
@@ -500,6 +538,7 @@ async function handleRequest(req: Request): Promise<Response> {
           style_id: styleId || null,
           image_data: imagePart.inlineData.data,
           mime_type: imagePart.inlineData.mimeType || "image/png",
+          cost_usd: Number((clientCost(body.priorCostUsd) + costFromUsage(modelId, parsedResponse)).toFixed(4)),
         });
         if (historyError) console.error("History save failed:", historyError.message);
       }
@@ -508,6 +547,10 @@ async function handleRequest(req: Request): Promise<Response> {
     }
   }
 
+  if (googleRes.ok && parsedResponse?.candidates) {
+    parsedResponse._costUsd = costFromUsage(modelId, parsedResponse);
+    return jsonResponse(parsedResponse);
+  }
   return new Response(responseText, {
     status: googleRes.status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
