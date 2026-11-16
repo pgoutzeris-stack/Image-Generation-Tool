@@ -319,9 +319,7 @@ async function handleRequest(req: Request): Promise<Response> {
     const checkPrompt = [
       "Du prüfst ein KI-generiertes Bild gegen die ROOTS-Corporate-Identity. Antworte nur mit JSON.",
       "roots_mark: true, wenn irgendwo im Bild das Wort ROOTS (auch RCOTS, R∞TS, ähnliche Schreibweisen), ein ROOTS-Logo, ein Unendlich-Zeichen als Logo oder eine Nachahmung davon zu sehen ist.",
-      rootsLogoStyle
-        ? "corner_clear: immer true. foreign_logo: true, wenn echte oder erfundene Markenlogos anderer Firmen sichtbar sind."
-        : "corner_clear: immer true. foreign_logo: immer false.",
+      "corner_clear: immer true. foreign_logo: immer false. Logos und Namen anderer Marken sind erlaubt und kein Verstoß.",
       "reason: ein kurzer deutscher Satz.",
     ].join("\n");
     const checkStartedAt = Date.now();
@@ -356,7 +354,8 @@ async function handleRequest(req: Request): Promise<Response> {
     let verdict: Record<string, unknown> | null = null;
     try { verdict = JSON.parse(checkParsed?.candidates?.[0]?.content?.parts?.[0]?.text ?? ""); } catch { /* ignore */ }
     if (!checkRes.ok || !verdict) return jsonResponse({ ok: false, checked: false, reason: "CI-Prüfung nicht erreichbar" });
-    const ok = verdict.roots_mark === false && verdict.corner_clear !== false && verdict.foreign_logo !== true;
+    // Verstoß ist nur ein vom Modell gezeichnetes ROOTS-Zeichen; Fremdmarken sind erlaubt.
+    const ok = verdict.roots_mark === false;
 
     if (ok) {
       const { data: profile } = await admin.schema("users").from("profiles").select("full_name").eq("id", authenticatedUser.id).maybeSingle();
