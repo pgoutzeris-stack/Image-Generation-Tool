@@ -217,7 +217,10 @@
   .style-preview { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 10px; }
   .style-preview-title { font-size: .78rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
   .style-preview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
-  .style-preview-grid img { width: 100%; border-radius: 10px; display: block; background: var(--surface); }
+  .style-preview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .style-preview-grid button { padding: 0; border: 0; background: none; cursor: zoom-in; border-radius: 10px; overflow: hidden; display: block; }
+  .style-preview-grid img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 10px; display: block; background: var(--surface); transition: transform .2s ease; }
+  .style-preview-grid button:hover img, .style-preview-grid button:focus-visible img { transform: scale(1.03); }
   .reference-action.locked { pointer-events: none; opacity: .5; }
   .option-header { display: flex; justify-content: space-between; align-items: center; width: 100%; cursor: pointer; }
   .option-text { flex-grow: 1; font-size: 0.95rem; }
@@ -891,6 +894,7 @@
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.8"></script>
   <script src="assets/master-styles.js?v=20261123a"></script>
+  <script src="assets/style-previews.js?v=20261123a"></script>
   <script>window.ROOTS_TOKENLESS_EMBED = window.parent !== window && new URLSearchParams(window.location.search).get('authBroker') === 'v1';</script>
 <script src="https://pgoutzeris-stack.github.io/ROOTS_Intranet/roots-user-bridge.js?v=20260728-identity-guard-v1"></script>
 </head>
@@ -1376,7 +1380,7 @@
 
     <div class="card card-bottom">
       <div class="card-title">
-        <i class="fa-solid fa-images"></i> Generierte Bilder
+        <i class="fa-solid fa-images"></i> <span id="gallery-title">Vorschau</span>
       </div>
       
       <div id="gallery" class="gallery">
@@ -1972,17 +1976,81 @@
   }
 
   // Zeigt die Beispielbilder des gewählten Stils, solange noch keine Bilder generiert sind.
+  /**
+   * Bis zu vier Vorschaubilder je Stil: freigegebene Serienbilder des Stils,
+   * bei Porträts die Teamporträts, dann eigens erzeugte Vorschauen aus
+   * assets/style-previews.js (mit dem Prompt, der sie erzeugt hat).
+   */
+  function stylePreviewItems(opt) {
+    if (!opt) return [];
+    const base = opt.previewImages?.length ? opt.previewImages : opt.seriesRefs?.length ? opt.seriesRefs : (opt.masterUrl ? [opt.masterUrl] : []);
+    const items = base.map(src => ({ src, prompt: '', source: 'Serienbild des Stils' }));
+    if (opt.teamRefs) {
+      try { opt.teamRefs.forEach(ref => items.push({ src: ref.path, prompt: '', source: 'Teamporträt im Stil' })); } catch { /* ohne Teamliste */ }
+    }
+    (window.ROOTS_STYLE_PREVIEWS?.[opt.id] || []).forEach(item => items.push({ ...item, source: 'Stilvorschau' }));
+    return items.slice(0, 4);
+  }
+
+  function setGalleryTitle(text) {
+    const title = document.getElementById('gallery-title');
+    if (title) title.textContent = text;
+  }
+
   function renderStylePreview() {
     const gallery = document.getElementById('gallery');
     if (!gallery || gallery.querySelector('.gallery-item')) return;
+    setGalleryTitle('Vorschau');
     const opt = styleOptions.find(o => o.id === currentStyleValue);
-    const images = opt?.previewImages?.length ? opt.previewImages : opt?.seriesRefs?.length ? opt.seriesRefs : (opt?.masterUrl ? [opt.masterUrl] : []);
-    if (!images.length) {
+    const items = stylePreviewItems(opt);
+    if (!items.length) {
       gallery.innerHTML = '<div class="placeholder"><i class="fa-solid fa-image fa-2x"></i></div>';
       return;
     }
-    gallery.innerHTML = `<div class="style-preview"><div class="style-preview-title">Stilvorschau · ${escapeStyleHtml(opt.name)}</div><div class="style-preview-grid">${images.map(src => `<img src="${escapeStyleHtml(src)}" alt="" loading="lazy">`).join('')}</div></div>`;
+    gallery.innerHTML = `<div class="style-preview"><div class="style-preview-title">${escapeStyleHtml(opt.name)}</div><div class="style-preview-grid">${items.map((item, i) => `<button type="button" onclick="openPreviewDetail(${i})" aria-label="Vorschau ${i + 1} öffnen"><img src="${escapeStyleHtml(item.src)}" alt="" loading="lazy"></button>`).join('')}</div></div>`;
   }
+
+  /** Vorschaubild in der Seitenleiste: Stil, Prompt, Modell, Format. */
+  window.openPreviewDetail = function(index) {
+    const opt = styleOptions.find(o => o.id === currentStyleValue);
+    const item = stylePreviewItems(opt)[index];
+    if (!opt || !item) return;
+    activeHistoryDetailId = null;
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val || '-'; };
+    const hdpImg = document.getElementById('hdp-img');
+    if (hdpImg) { hdpImg.src = item.src; hdpImg.style.display = ''; hdpImg.onclick = () => openLightbox(hdpImg.src); }
+    set('hdp-model', opt.name);
+    set('hdp-date', item.source);
+    set('hdp-prompt', item.prompt || 'Kein Prompt hinterlegt');
+    set('hdp-user', item.source);
+    set('hdp-date2', item.created || '-');
+    set('hdp-model2', item.model || '-');
+    set('hdp-aspect', item.aspect || opt.aspect || '-');
+    set('hdp-cost', item.costUsd ? Number(item.costUsd).toLocaleString('de-DE', { minimumFractionDigits: 3, maximumFractionDigits: 3 }) + ' $' : '-');
+    set('hdp-style', opt.name);
+    const avatar = document.getElementById('hdp-avatar');
+    const fallback = document.getElementById('hdp-avatar-fallback');
+    if (avatar) { avatar.style.display = 'none'; avatar.removeAttribute('src'); }
+    if (fallback) { fallback.textContent = 'AI'; fallback.style.display = ''; }
+    const btnLoad = document.getElementById('hdp-btn-load');
+    const btnDl = document.getElementById('hdp-btn-download');
+    if (btnLoad) {
+      btnLoad.style.display = item.prompt ? '' : 'none';
+      btnLoad.onclick = () => {
+        const input = document.querySelector('#prompt-list .prompt-row input');
+        if (input) { input.value = item.prompt; input.dispatchEvent(new Event('input', { bubbles: true })); }
+        closeHistoryDetail();
+      };
+    }
+    if (btnDl) btnDl.onclick = () => {
+      const link = document.createElement('a');
+      link.href = item.src;
+      link.download = item.src.split('/').pop().split('?')[0] || 'vorschau.jpg';
+      document.body.appendChild(link); link.click(); link.remove();
+    };
+    document.getElementById('history-detail-overlay')?.classList.add('open');
+    document.getElementById('history-detail-panel')?.classList.add('open');
+  };
 
   function selectStyleOption(id, e) {
     if (e) e.stopPropagation();
@@ -3023,6 +3091,7 @@ FINAL CONSTRAINTS:
     document.getElementById('btn-zip').style.display = 'none';
     document.getElementById('log-container').innerHTML = '';
     void logStyleConflicts(prompts);
+    setGalleryTitle('Generierte Bilder');
     document.getElementById('gallery').innerHTML = '';
     batchCancelled = false;
     generatedImagesGlobal = [];
@@ -3399,7 +3468,7 @@ FINAL CONSTRAINTS:
   // Buttons verdrahten
   const btnLoad = document.getElementById('hdp-btn-load');
   const btnDl   = document.getElementById('hdp-btn-download');
-  if (btnLoad) btnLoad.onclick = () => { closeHistoryDetail(); loadHistoryIntoForm(id); };
+  if (btnLoad) { btnLoad.style.display = ''; btnLoad.onclick = () => { closeHistoryDetail(); loadHistoryIntoForm(id); }; }
   if (btnDl)   btnDl.onclick   = () => downloadHistoryImage(id);
 
   // Panel öffnen

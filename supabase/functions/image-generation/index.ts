@@ -196,6 +196,14 @@ function buildSystemInstruction(
   return sections.join("\n\n");
 }
 
+async function isServiceCall(req: Request) {
+  const secret = req.headers.get("x-cron-secret") || "";
+  if (!secret) return false;
+  const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+  const { data } = await admin.schema("shared").rpc("get_api_key", { p_key_name: "signal_layer_cron_secret" });
+  return Boolean(data) && String(data) === secret;
+}
+
 async function handleRequest(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return errorResponse("Method not allowed", 405);
@@ -204,8 +212,11 @@ async function handleRequest(req: Request): Promise<Response> {
   }
 
   const user = await getUser(req);
-  if (!user) return errorResponse("Nicht angemeldet oder Session abgelaufen.", 401);
-  const authenticatedUser = user;
+  // Betriebsmodus ohne Login: nur fuer Stilvorschauen, per Cron-Secret aus dem
+  // Vault (wie im Signal Layer). Schreibt nie in den Verlauf.
+  const serviceMode = !user && await isServiceCall(req);
+  if (!user && !serviceMode) return errorResponse("Nicht angemeldet oder Session abgelaufen.", 401);
+  const authenticatedUser = user ?? { id: null as unknown as string, email: "" };
 
   let body: Record<string, unknown>;
   try {
@@ -215,6 +226,7 @@ async function handleRequest(req: Request): Promise<Response> {
   }
 
   const action = String(body.action ?? "");
+  if (serviceMode && action !== "generate_image") return errorResponse("Aktion nicht erlaubt", 403);
   const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false },
   });
@@ -611,7 +623,15 @@ async function handleRequest(req: Request): Promise<Response> {
         (part: { inlineData?: { data?: string } }) => part.inlineData?.data,
       ) as { inlineData: { data: string; mimeType?: string } } | undefined;
 
-      if (imagePart?.inlineData?.data && body.deferHistory !== true) {
+      // Stilvorschau: Bild in den Storage legen, Antwort klein halten.
+      const previewPath = String(body.previewPath ?? "");
+      if (serviceMode && imagePart?.inlineData?.data && /^previews\/[a-z0-9-]+\/[1-4]\.(png|jpg)$/.test(previewPath)) {
+        const bytes = Uint8Array.from(atob(imagePart.inlineData.data), (c) => c.charCodeAt(0));
+        const { error: uploadError } = await admin.storage.from("image-tool-previews")
+          .upload(previewPath, bytes, { contentType: imagePart.inlineData.mimeType || "image/png", upsert: true });
+        return jsonResponse({ ok: !uploadError, path: previewPath, error: uploadError?.message || null, costUsd: costFromUsage(modelId, parsedResponse) });
+      }
+      if (imagePart?.inlineData?.data && body.deferHistory !== true && !serviceMode) {
         const { data: profile } = await admin
           .schema("users")
           .from("profiles")
