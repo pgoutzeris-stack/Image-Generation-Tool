@@ -1696,13 +1696,7 @@
     const style = activeStrictStyle();
     const text = (input?.value || '').trim();
     if (!style || text.length < 12) { renderStyleConflict(row, null, []); return; }
-    const key = `${style.id}\n${text}`;
-    if (!styleConflictCache.has(key)) {
-      styleConflictCache.set(key, callImageFunction('check_style_conflicts', { promptText: text, stylePrompt: style.prompt, styleName: style.name })
-        .then(res => Array.isArray(res?.conflicts) ? res.conflicts : [])
-        .catch(() => { styleConflictCache.delete(key); return []; }));
-    }
-    const conflicts = await styleConflictCache.get(key);
+    const conflicts = await conflictsFor(style, text);
     // Inzwischen weitergetippt oder Stil gewechselt: altes Ergebnis verwerfen.
     if ((input.value || '').trim() !== text || activeStrictStyle()?.id !== style.id) return;
     renderStyleConflict(row, style, conflicts);
@@ -1721,6 +1715,19 @@
     const row = event.target.closest('.prompt-row');
     if (row) scheduleStyleConflictCheck(row);
   });
+
+  /** Widersprueche eines Prompts, aus dem Zwischenspeicher oder frisch geprueft. */
+  function conflictsFor(style, text) {
+    const clean = String(text || '').trim();
+    if (!style?.strict || !style.prompt || style.needsPortraitInput || clean.length < 12) return Promise.resolve([]);
+    const key = `${style.id}\n${clean}`;
+    if (!styleConflictCache.has(key)) {
+      styleConflictCache.set(key, callImageFunction('check_style_conflicts', { promptText: clean, stylePrompt: style.prompt, styleName: style.name })
+        .then(res => Array.isArray(res?.conflicts) ? res.conflicts : [])
+        .catch(() => { styleConflictCache.delete(key); return []; }));
+    }
+    return styleConflictCache.get(key);
+  }
 
   /** Bekannte Widersprueche beim Start ins Protokoll schreiben. */
   async function logStyleConflicts(prompts) {
@@ -2865,6 +2872,7 @@ FINAL CONSTRAINTS:
             clothingImage,
             seriesRefPaths,
             styleStrict: Boolean(styleOpt?.strict),
+            styleConflicts: styleOpt?.strict ? await conflictsFor(styleOpt, promptText) : [],
             priorCostUsd: costSoFar,
             deferHistory: Boolean(styleOpt?.ciCheck)
           });

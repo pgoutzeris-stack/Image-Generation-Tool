@@ -121,7 +121,7 @@ function readReference(body: Record<string, unknown>, dataKey: string, mimeKey: 
   return { data, mimeType };
 }
 
-const STYLE_PRIORITY_RULE = "RANGFOLGE: Der BILDAUFTRAG bestimmt Thema, Aussage, Motiv, Marken, Produkte und Fakten. Medium und Bildsprache, Farbwelt, Licht, Format und die Textregeln der Stilvorgabe sind verbindlich und haben Vorrang vor jeder Gestaltungsangabe im BILDAUFTRAG. Verlangt der BILDAUFTRAG etwas anderes, etwa Illustration statt Fotografie, eine Headline, ganze Sätze oder mehr Wörter als die Stilvorgabe erlaubt, ein anderes Format oder eine andere Farbwelt, setze die Stilvorgabe um und übernimm aus dem Auftrag nur Thema und Aussage.";
+const STYLE_PRIORITY_RULE = "RANGFOLGE: Der BILDAUFTRAG bestimmt Thema, Aussage, Motiv, Marken, Produkte und Fakten. Medium und Bildsprache, Farbwelt, Licht, Format und die Textregeln der Stilvorgabe sind verbindlich und haben Vorrang vor jeder Gestaltungsangabe im BILDAUFTRAG. Verlangt der BILDAUFTRAG etwas anderes, etwa Illustration statt Fotografie, eine Headline, ganze Sätze oder mehr Wörter als die Stilvorgabe erlaubt, ein anderes Format oder eine andere Farbwelt, setze die Stilvorgabe um und übernimm aus dem Auftrag nur Thema und Aussage. Headlines, Sätze und Slogans aus dem BILDAUFTRAG erscheinen nicht im Bild, auch nicht als Schild, Plakat, Anzeige, Bildschirm oder Aufdruck in der Szene. Zeige nur Marken, die der BILDAUFTRAG nennt.";
 
 // Prueft vor dem Generieren, welche Gestaltungsangaben eines Auftrags dem Stil
 // widersprechen. Thema, Motiv und Marken sind kein Widerspruch.
@@ -132,6 +132,15 @@ const CONFLICT_CHECK_INSTRUCTION = [
   "Je Widerspruch: angabe = was der Auftrag verlangt, kurz und nah am Wortlaut (höchstens 8 Wörter); stil = was die Stilvorgabe stattdessen festlegt (höchstens 10 Wörter). Leere Liste, wenn es keinen gibt.",
 ].join("\n");
 
+function readStyleConflicts(value: unknown) {
+  return (Array.isArray(value) ? value : []).slice(0, 5)
+    .map((item) => ({
+      angabe: String((item as Record<string, unknown>)?.angabe ?? "").replace(/\s+/g, " ").trim().slice(0, 120),
+      stil: String((item as Record<string, unknown>)?.stil ?? "").replace(/\s+/g, " ").trim().slice(0, 160),
+    }))
+    .filter((item) => item.angabe && item.stil);
+}
+
 function buildSystemInstruction(
   stylePrompt: string,
   hasStyleReference: boolean,
@@ -140,6 +149,7 @@ function buildSystemInstruction(
   inputImageCount = 0,
   seriesReferenceCount = 0,
   strictStyle = false,
+  styleConflicts: Array<{ angabe: string; stil: string }> = [],
 ) {
   const sections = [
     "Du bist ein professioneller Art Director und Bildgenerator. Erzeuge genau das vom Nutzer beschriebene Motiv.",
@@ -155,6 +165,11 @@ function buildSystemInstruction(
     sections.push(
       `VERBINDLICHE STILVORGABE:\n${stylePrompt}\n${STYLE_PRIORITY_RULE}`,
     );
+    if (styleConflicts.length) {
+      sections.push(
+        `NICHT UMSETZEN: Diese Angaben im BILDAUFTRAG widersprechen der Stilvorgabe. Setze stattdessen die Stilvorgabe um:\n${styleConflicts.map((c) => `- ${c.angabe} (stattdessen: ${c.stil})`).join("\n")}`,
+      );
+    }
   } else if (stylePrompt) {
     sections.push(
       `VERBINDLICHE STILVORGABE:\n${stylePrompt}\nDie Stilvorgabe bestimmt ausschließlich die visuelle Ausführung. Sie darf Motiv, Fakten und ausdrückliche Anforderungen des Nutzers nicht ersetzen.`,
@@ -570,6 +585,7 @@ async function handleRequest(req: Request): Promise<Response> {
               inputImages.length,
               seriesReferences.length,
               body.styleStrict === true,
+              readStyleConflicts(body.styleConflicts),
             ),
           }],
         },
