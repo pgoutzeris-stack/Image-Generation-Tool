@@ -55,7 +55,7 @@ async function getUser(req: Request) {
 // Referenzbilder der Stile liegen auf GitHub Pages; die Funktion lädt sie selbst,
 // damit die Anfrage klein bleibt (Anfragen über ca. 512 KB hängen am Gateway).
 const PAGES_BASE = "https://pgoutzeris-stack.github.io/Image-Generation-Tool/";
-const ASSET_PATH_RE = /^assets\/(master-styles\/[a-z0-9-]+|portrait-master(-hell)?)\.jpg$/;
+const ASSET_PATH_RE = /^assets\/(master-styles\/[a-z0-9-]+|team-dunkel\/[a-z0-9-]+|portrait-master(-hell)?)\.jpg$/;
 const assetCache = new Map<string, { data: string; mimeType: string }>();
 
 function bytesToBase64(bytes: Uint8Array) {
@@ -448,6 +448,9 @@ async function handleRequest(req: Request): Promise<Response> {
       if (ref) seriesReferences.push(ref);
     }
     for (const asset of await loadAssets(body.inputImagePaths, 2 - inputImages.length)) inputImages.push(asset);
+    // Kleidungsreferenz kommt immer nach Person und Hintergrund, damit sie im Prompt stabil Image 3 heißt.
+    const clothingRef = readReference((body.clothingImage ?? {}) as Record<string, unknown>, "data", "mimeType");
+    if (clothingRef && inputImages.length < 3) inputImages.push(clothingRef);
     for (const asset of await loadAssets(body.seriesRefPaths, 3 - seriesReferences.length)) seriesReferences.push(asset);
   } catch (error) {
     return errorResponse(error instanceof Error ? error.message : "Referenzbild ist ungültig.", 400);

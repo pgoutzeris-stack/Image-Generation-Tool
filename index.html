@@ -492,6 +492,15 @@
   .portrait-input.visible { display: block; }
   .portrait-input .drop-zone { position: relative; min-height: 180px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
   .portrait-input .drop-zone img { max-height: 220px; }
+  .portrait-field { margin-bottom: 12px; }
+  .portrait-field label { display: block; font-size: .8rem; font-weight: 600; margin-bottom: 6px; }
+  .portrait-field select {
+    width: 100%; height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px;
+    font-family: inherit; font-size: 1rem; color: var(--ink); background: var(--bg); box-sizing: border-box;
+  }
+  .portrait-field select:focus { outline: none; border-color: var(--brand); box-shadow: var(--shadow-focus); }
+  .portrait-field.hidden { display: none; }
+  .portrait-confirm.hidden { display: none; }
   .portrait-confirm { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: .8rem; font-weight: 600; cursor: pointer; }
   .portrait-confirm input { width: 16px; height: 16px; margin: 0; accent-color: var(--brand); }
   .custom-select-wrapper.locked { pointer-events: none; opacity: .5; }
@@ -1210,6 +1219,10 @@
           </button>
         </div>
         <div id="portrait-input" class="portrait-input">
+          <div id="portrait-person-field" class="portrait-field hidden">
+            <label for="portrait-person">Person</label>
+            <select id="portrait-person"></select>
+          </div>
           <div id="portrait-drop-zone" class="drop-zone">
             <i id="portrait-drop-icon" class="fa-solid fa-user"></i>
             <p id="portrait-drop-text">Porträtfoto ablegen oder auswählen</p>
@@ -1219,10 +1232,14 @@
               <i class="fa-solid fa-xmark"></i>
             </button>
           </div>
-          <label class="portrait-confirm">
+          <label class="portrait-confirm" id="portrait-confirm-label">
             <input type="checkbox" id="portrait-confirm">
             <span>Das Foto ist ein Porträt einer einzelnen Person</span>
           </label>
+          <div id="portrait-clothing-field" class="portrait-field hidden" style="margin-top:12px">
+            <label for="portrait-clothing">Kleidung</label>
+            <input type="text" id="portrait-clothing" placeholder="z. B. dunkelblaues Sakko, weißes Hemd, ohne Krawatte">
+          </div>
         </div>
       </div>
 
@@ -1674,6 +1691,42 @@
   }
 
   let portraitInput = null;
+  const TEAM_DUNKEL_STATIC = [
+    { id: 'enrico-romstedt', name: 'Enrico Romstedt' },
+    { id: 'jannik-mueller', name: 'Jannik Müller' },
+    { id: 'manuel-stankovic', name: 'Manuel Stankovic' },
+    { id: 'martin-sinning', name: 'Martin Sinning' },
+    { id: 'pano-goutzeris', name: 'Pano Goutzeris' },
+    { id: 'richard-erbler', name: 'Richard Erbler' },
+    { id: 'rod-mitecki', name: 'Rod Mitecki' },
+  ];
+
+  function activeTeamRefs() {
+    return styleOptions.find(o => o.id === currentStyleValue)?.teamRefs || null;
+  }
+
+  // Teammitglied gewählt: Gesicht aus der Teamreferenz, ein hochgeladenes Foto liefert nur die Kleidung.
+  function selectedTeamMember() {
+    const refs = activeTeamRefs();
+    const id = document.getElementById('portrait-person')?.value || '';
+    return refs ? refs.find(r => r.id === id) || null : null;
+  }
+
+  function updatePortraitTeamUi() {
+    const refs = activeTeamRefs();
+    const personField = document.getElementById('portrait-person-field');
+    const select = document.getElementById('portrait-person');
+    personField?.classList.toggle('hidden', !refs || !isPortraitMode());
+    if (refs && select && !select.options.length) {
+      select.innerHTML = refs.map(r => `<option value="${r.id}">${r.name}</option>`).join('')
+        + '<option value="">Neue Person (Foto)</option>';
+    }
+    const member = selectedTeamMember();
+    document.getElementById('portrait-clothing-field')?.classList.toggle('hidden', !member || Boolean(portraitInput));
+    document.getElementById('portrait-confirm-label')?.classList.toggle('hidden', Boolean(member));
+    const text = document.getElementById('portrait-drop-text');
+    if (text) text.textContent = member ? 'Kleidungsreferenz ablegen oder auswählen (optional)' : 'Porträtfoto ablegen oder auswählen';
+  }
   const portraitMasterCache = {};
 
   function isPortraitMode() {
@@ -1720,6 +1773,7 @@
       removeReference('style');
       removeReference('logo');
     }
+    updatePortraitTeamUi();
   }
 
   function setupPortraitInput() {
@@ -1741,6 +1795,7 @@
     });
     input.addEventListener('change', () => { if (input.files?.[0]) handlePortraitFile(input.files[0]); });
     removeButton.addEventListener('click', (event) => { event.stopPropagation(); setPortraitInput(null); });
+    document.getElementById('portrait-person')?.addEventListener('change', updatePortraitTeamUi);
   }
 
   async function handlePortraitFile(file) {
@@ -1764,6 +1819,7 @@
     const confirm = document.getElementById('portrait-confirm');
     if (confirm) confirm.checked = false;
     if (!value) document.getElementById('portrait-file-input').value = '';
+    updatePortraitTeamUi();
   }
 
   async function loadPortraitMaster(url) {
@@ -2055,7 +2111,7 @@ Licht und Stimmung:
 - Klare visuelle Hierarchie mit der Produktgruppe im Zentrum
 Text: ausschließlich „NIVEA“, „Eucerin“ und „Labello“, korrekt geschrieben und lesbar auf der jeweiligen Verpackung.
 VERBOTEN: keine Personen, keine Slogans, keine themenfremden Objekte, keine weiteren Marken, kein Wasserzeichen. Produktgruppe und Icons nie anschneiden.` },
-    { id: "portrait", name: "Corporate Portrait (dunkel)", group: "ROOTS", aspect: "1:1", needsPortraitInput: true, masterUrl: "assets/portrait-master.jpg", prompt: `Create a high-resolution, photorealistic corporate portrait in a consistent standardized final style.
+    { id: "portrait", name: "Corporate Portrait (dunkel)", group: "ROOTS", aspect: "1:1", needsPortraitInput: true, masterUrl: "assets/portrait-master.jpg", get teamRefs() { return TEAM_DUNKEL_STATIC.map(m => ({ ...m, path: `assets/team-dunkel/${m.id}.jpg` })); }, prompt: `Create a high-resolution, photorealistic corporate portrait in a consistent standardized final style.
 INPUT IMAGES:
 
 * Image 1 contains the new person and is the strict reference for identity, face, hairstyle, expression, clothing, and body posture.
@@ -2700,11 +2756,21 @@ FINAL CONSTRAINTS:
           const stylePrompt = styleOpt ? styleOpt.prompt : '';
           // Anfrage muss unter ca. 512 KB bleiben: Stilbilder lädt die Edge Function selbst,
           // hochgeladene Bilder werden auf ein Budget komprimiert.
-          const inputImages = styleOpt?.needsPortraitInput
+          const teamMember = styleOpt?.needsPortraitInput ? selectedTeamMember() : null;
+          // Teammitglied: Image 1 = Teamreferenz (Gesicht), Image 2 = Hintergrund, Image 3 = optionale Kleidungsreferenz.
+          const inputImages = styleOpt?.needsPortraitInput && !teamMember
             ? [await fitImageToBudget(portraitInput.data, portraitInput.mimeType, 240000)]
             : [];
-          const inputImagePaths = styleOpt?.needsPortraitInput && styleOpt.masterUrl ? [styleOpt.masterUrl] : [];
-          const seriesRefPaths = styleOpt?.seriesRefs?.length ? styleOpt.seriesRefs : [];
+          const inputImagePaths = styleOpt?.needsPortraitInput && styleOpt.masterUrl
+            ? (teamMember ? [teamMember.path, styleOpt.masterUrl] : [styleOpt.masterUrl])
+            : [];
+          const clothingImage = teamMember && portraitInput
+            ? await fitImageToBudget(portraitInput.data, portraitInput.mimeType, 200000)
+            : null;
+          // Die übrigen Teamporträts halten Hauttextur, Licht und Bildaufbau der Serie.
+          const seriesRefPaths = styleOpt?.teamRefs
+            ? styleOpt.teamRefs.filter(r => r.id !== teamMember?.id).slice(0, 3).map(r => r.path)
+            : (styleOpt?.seriesRefs?.length ? styleOpt.seriesRefs : []);
           const styleRefSend = styleReference ? await fitImageToBudget(styleReference.data, styleReference.mimeType, 150000) : null;
           const logoRefSend = logoReference ? await fitImageToBudget(logoReference.data, logoReference.mimeType, 100000, true) : null;
 
@@ -2722,6 +2788,7 @@ FINAL CONSTRAINTS:
             logoPlacement: logoReference ? logoPlacement : null,
             inputImages,
             inputImagePaths,
+            clothingImage,
             seriesRefPaths,
             priorCostUsd: costSoFar,
             deferHistory: Boolean(styleOpt?.ciCheck)
@@ -2815,16 +2882,35 @@ FINAL CONSTRAINTS:
       .map(i => i.value.trim()).filter(Boolean);
 
     if (isPortraitMode()) {
-      if (!portraitInput) {
-        toast('Bitte ein Porträtfoto hochladen.', 'error');
-        return;
+      const teamMember = selectedTeamMember();
+      if (teamMember) {
+        const clothing = document.getElementById('portrait-clothing')?.value.trim() || '';
+        if (!portraitInput && !clothing) {
+          toast('Bitte die Kleidung angeben oder eine Kleidungsreferenz hochladen.', 'error');
+          return;
+        }
+        setAspectValue('1:1');
+        prompts.length = 0;
+        prompts.push(
+          `TEAMPORTRÄT ${teamMember.name}: Image 1 ist das freigegebene Teamporträt dieser Person und die verbindliche Referenz für Identität, Gesicht, Gesichtszüge, Frisur, Bart, Hauttextur, Ausdruck und Kopfhaltung. `
+          + 'Diese Vorgabe hat Vorrang vor allen Regeln zur Kleidung aus Image 1: Die Kleidung aus Image 1 wird NICHT übernommen. '
+          + (portraitInput
+            ? 'Die Kleidung kommt ausschließlich aus Image 3: Kleidungsstück, Farbe, Kragen, Krawatte, Muster und Stoff genau übernehmen und natürlich an die Haltung anpassen. Aus Image 3 nur die Kleidung übernehmen, niemals Gesicht, Frisur, Hautfarbe, Körperbau oder Hintergrund.'
+            : `Die Kleidung kommt ausschließlich aus dieser Beschreibung und muss genau so abgebildet werden: ${clothing}.`)
+          + ' Hintergrund aus Image 2, Bildaufbau, Kopfhöhe und Kopfgröße wie in Image 1.'
+        );
+      } else {
+        if (!portraitInput) {
+          toast('Bitte ein Porträtfoto hochladen.', 'error');
+          return;
+        }
+        if (!document.getElementById('portrait-confirm')?.checked) {
+          toast('Bitte bestätigen, dass das Foto ein Porträt einer Person ist.', 'error');
+          return;
+        }
+        setAspectValue('1:1');
+        if (prompts.length === 0) prompts.push('Erzeuge das Corporate Portrait der Person aus Image 1 vor dem Hintergrund aus Image 2.');
       }
-      if (!document.getElementById('portrait-confirm')?.checked) {
-        toast('Bitte bestätigen, dass das Foto ein Porträt einer Person ist.', 'error');
-        return;
-      }
-      setAspectValue('1:1');
-      if (prompts.length === 0) prompts.push('Erzeuge das Corporate Portrait der Person aus Image 1 vor dem Hintergrund aus Image 2.');
     }
 
     if (prompts.length === 0) {
