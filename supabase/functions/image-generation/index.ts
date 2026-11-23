@@ -121,6 +121,17 @@ function readReference(body: Record<string, unknown>, dataKey: string, mimeKey: 
   return { data, mimeType };
 }
 
+const STYLE_PRIORITY_RULE = "RANGFOLGE: Der BILDAUFTRAG bestimmt Thema, Aussage, Motiv, Marken, Produkte und Fakten. Medium und Bildsprache, Farbwelt, Licht, Format und die Textregeln der Stilvorgabe sind verbindlich und haben Vorrang vor jeder Gestaltungsangabe im BILDAUFTRAG. Verlangt der BILDAUFTRAG etwas anderes, etwa Illustration statt Fotografie, eine Headline, ganze Sätze oder mehr Wörter als die Stilvorgabe erlaubt, ein anderes Format oder eine andere Farbwelt, setze die Stilvorgabe um und übernimm aus dem Auftrag nur Thema und Aussage.";
+
+// Prueft vor dem Generieren, welche Gestaltungsangaben eines Auftrags dem Stil
+// widersprechen. Thema, Motiv und Marken sind kein Widerspruch.
+const CONFLICT_CHECK_INSTRUCTION = [
+  "Du vergleichst einen BILDAUFTRAG mit einer verbindlichen STILVORGABE für KI-Bilder. Antworte nur mit JSON.",
+  "Melde nur Gestaltungsangaben im Auftrag, die der Stilvorgabe klar widersprechen: Medium und Bildsprache (z. B. Illustration, Zeichnung, Vektor, 3D-Render statt Fotografie), Text im Bild (Headline, Satz, Slogan, mehr Wörter als erlaubt), Format oder Seitenverhältnis, Farbwelt, Logos oder Absender, ausdrücklich verbotene Elemente.",
+  "Kein Widerspruch sind Thema, Aussage, Motividee, Personen, Orte, Marken, Produkte und Fakten. Fehlende Angaben sind kein Widerspruch. Im Zweifel nichts melden.",
+  "Je Widerspruch: angabe = was der Auftrag verlangt, kurz und nah am Wortlaut (höchstens 8 Wörter); stil = was die Stilvorgabe stattdessen festlegt (höchstens 10 Wörter). Leere Liste, wenn es keinen gibt.",
+].join("\n");
+
 function buildSystemInstruction(
   stylePrompt: string,
   hasStyleReference: boolean,
@@ -128,6 +139,7 @@ function buildSystemInstruction(
   logoPlacement: string,
   inputImageCount = 0,
   seriesReferenceCount = 0,
+  strictStyle = false,
 ) {
   const sections = [
     "Du bist ein professioneller Art Director und Bildgenerator. Erzeuge genau das vom Nutzer beschriebene Motiv.",
@@ -135,6 +147,13 @@ function buildSystemInstruction(
   if (inputImageCount > 0 && stylePrompt) {
     sections.push(
       `VERBINDLICHER ARBEITSAUFTRAG FÜR DIE EINGABEBILDER (Image 1 bis Image ${inputImageCount}, in dieser Reihenfolge übergeben):\n${stylePrompt}`,
+    );
+  } else if (stylePrompt && strictStyle) {
+    // Feste Stile (Masterprompts, Kundenstile): der Auftrag liefert Thema und
+    // Motiv, die Gestaltung gehoert dem Stil. Vorher gewann jede ausdrueckliche
+    // Gestaltungsangabe im Auftrag, etwa "Illustration" oder eine Headline.
+    sections.push(
+      `VERBINDLICHE STILVORGABE:\n${stylePrompt}\n${STYLE_PRIORITY_RULE}`,
     );
   } else if (stylePrompt) {
     sections.push(
@@ -336,6 +355,58 @@ async function handleRequest(req: Request): Promise<Response> {
     }
   }
 
+  if (action === "check_style_conflicts") {
+    const promptText = String(body.promptText ?? "").trim().slice(0, 6000);
+    const stylePrompt = String(body.stylePrompt ?? "").trim().slice(0, 16000);
+    if (!promptText || !stylePrompt) return jsonResponse({ conflicts: [] });
+    let apiKey = "";
+    try { apiKey = await readGoogleApiKey(); } catch { /* handled below */ }
+    if (!apiKey) return errorResponse("Google API-Key nicht hinterlegt.", 503);
+    const checkStartedAt = Date.now();
+    const checkRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: CONFLICT_CHECK_INSTRUCTION }] },
+          contents: [{ role: "user", parts: [{ text: `STILVORGABE:\n${stylePrompt}\n\nBILDAUFTRAG:\n${promptText}` }] }],
+          generationConfig: {
+            temperature: 0,
+            thinkingConfig: { thinkingBudget: 0 },
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: "OBJECT",
+              properties: {
+                conflicts: {
+                  type: "ARRAY",
+                  items: {
+                    type: "OBJECT",
+                    properties: { angabe: { type: "STRING" }, stil: { type: "STRING" } },
+                    required: ["angabe", "stil"],
+                  },
+                },
+              },
+              required: ["conflicts"],
+            },
+          },
+        }),
+      },
+    );
+    const checkText = await checkRes.text();
+    let checkParsed: Record<string, any> = {};
+    try { checkParsed = JSON.parse(checkText); } catch { /* ignore */ }
+    await logUsage("style_conflict_check", "gemini-2.5-flash", checkParsed, checkRes.ok, checkStartedAt, 0, checkRes.ok ? undefined : `http_${checkRes.status}`);
+    if (!checkRes.ok) return jsonResponse({ conflicts: [], checked: false });
+    let result: Record<string, unknown> = {};
+    try { result = JSON.parse(checkParsed?.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}"); } catch { /* ignore */ }
+    const conflicts = (Array.isArray(result.conflicts) ? result.conflicts : [])
+      .map((item) => ({ angabe: String((item as Record<string, unknown>)?.angabe ?? "").slice(0, 120), stil: String((item as Record<string, unknown>)?.stil ?? "").slice(0, 160) }))
+      .filter((item) => item.angabe && item.stil)
+      .slice(0, 5);
+    return jsonResponse({ conflicts, checked: true });
+  }
+
   if (action === "finalize_image") {
     // ROOTS-CI-Prüfung des Rohbilds (vor Logo-Einsatz) mit günstigem Flash-Lite-Modell, danach Verlaufseintrag.
     let rawImage;
@@ -498,6 +569,7 @@ async function handleRequest(req: Request): Promise<Response> {
               logoPlacement,
               inputImages.length,
               seriesReferences.length,
+              body.styleStrict === true,
             ),
           }],
         },

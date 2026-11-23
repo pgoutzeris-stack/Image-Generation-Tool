@@ -273,6 +273,10 @@
   .prompt-list { display: flex; flex-direction: column; gap: 14px; margin-bottom: 20px; flex-grow: 1; }
   .prompt-row { display: flex; gap: 12px; align-items: center; }
   .prompt-row input { flex-grow: 1; }
+  .prompt-conflict { margin: -6px 0 0; padding: 10px 12px; border-radius: 10px; background: #fff7ed; color: #9a3412; font-size: .8rem; line-height: 1.45; }
+  .prompt-conflict b { display: block; margin-bottom: 4px; font-weight: 700; }
+  .prompt-conflict ul { margin: 0; padding-left: 18px; }
+  .prompt-conflict li span { color: #7c2d12; }
   
   .btn-icon {
     background: #f1f5f9; border: 1.5px solid var(--c-border); color: var(--c-text-muted);
@@ -886,7 +890,7 @@
   }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.8"></script>
-  <script src="assets/master-styles.js?v=20261116b"></script>
+  <script src="assets/master-styles.js?v=20261123a"></script>
   <script>window.ROOTS_TOKENLESS_EMBED = window.parent !== window && new URLSearchParams(window.location.search).get('authBroker') === 'v1';</script>
 <script src="https://pgoutzeris-stack.github.io/ROOTS_Intranet/roots-user-bridge.js?v=20260728-identity-guard-v1"></script>
 </head>
@@ -1658,7 +1662,74 @@
   function removePromptRow(btn) {
     const list = document.getElementById('prompt-list');
     if (list.querySelectorAll('.prompt-row').length > 1) {
-      btn.closest('.prompt-row').remove();
+      const row = btn.closest('.prompt-row');
+      if (row.nextElementSibling?.classList.contains('prompt-conflict')) row.nextElementSibling.remove();
+      row.remove();
+    }
+  }
+
+  // Widerspruchspruefung: Gestaltungsangaben im Prompt, die einem festen Stil
+  // widersprechen, werden beim Erstellen vom Stil ueberschrieben. Das sagt der
+  // Hinweis unter der Zeile, bevor jemand generiert.
+  const styleConflictCache = new Map();
+  const styleConflictTimers = new WeakMap();
+
+  function activeStrictStyle() {
+    const opt = styleOptions.find(o => o.id === currentStyleValue);
+    return opt?.strict && opt.prompt && !opt.needsPortraitInput ? opt : null;
+  }
+
+  function renderStyleConflict(row, style, conflicts) {
+    let box = row.nextElementSibling?.classList.contains('prompt-conflict') ? row.nextElementSibling : null;
+    if (!style || !conflicts?.length) { box?.remove(); return; }
+    if (!box) {
+      box = document.createElement('div');
+      box.className = 'prompt-conflict';
+      box.setAttribute('role', 'status');
+      row.after(box);
+    }
+    box.innerHTML = `<b>Wird vom Stil „${escapeStyleHtml(style.name)}“ überschrieben</b><ul>${conflicts.map(c => `<li>${escapeStyleHtml(c.angabe)} <span>→ ${escapeStyleHtml(c.stil)}</span></li>`).join('')}</ul>`;
+  }
+
+  async function checkStyleConflict(row) {
+    const input = row?.querySelector('input');
+    const style = activeStrictStyle();
+    const text = (input?.value || '').trim();
+    if (!style || text.length < 12) { renderStyleConflict(row, null, []); return; }
+    const key = `${style.id}\n${text}`;
+    if (!styleConflictCache.has(key)) {
+      styleConflictCache.set(key, callImageFunction('check_style_conflicts', { promptText: text, stylePrompt: style.prompt, styleName: style.name })
+        .then(res => Array.isArray(res?.conflicts) ? res.conflicts : [])
+        .catch(() => { styleConflictCache.delete(key); return []; }));
+    }
+    const conflicts = await styleConflictCache.get(key);
+    // Inzwischen weitergetippt oder Stil gewechselt: altes Ergebnis verwerfen.
+    if ((input.value || '').trim() !== text || activeStrictStyle()?.id !== style.id) return;
+    renderStyleConflict(row, style, conflicts);
+  }
+
+  function scheduleStyleConflictCheck(row, delay = 1200) {
+    clearTimeout(styleConflictTimers.get(row));
+    styleConflictTimers.set(row, setTimeout(() => void checkStyleConflict(row), delay));
+  }
+
+  function recheckAllStyleConflicts() {
+    document.querySelectorAll('#prompt-list .prompt-row').forEach(row => scheduleStyleConflictCheck(row, 200));
+  }
+
+  document.getElementById('prompt-list')?.addEventListener('input', event => {
+    const row = event.target.closest('.prompt-row');
+    if (row) scheduleStyleConflictCheck(row);
+  });
+
+  /** Bekannte Widersprueche beim Start ins Protokoll schreiben. */
+  async function logStyleConflicts(prompts) {
+    const style = activeStrictStyle();
+    if (!style) return;
+    for (const [i, text] of prompts.entries()) {
+      const cached = styleConflictCache.get(`${style.id}\n${String(text).trim()}`);
+      const conflicts = cached ? await cached : [];
+      if (conflicts.length) simpleLog(`Prompt ${i + 1}: ${conflicts.map(c => c.angabe).join(', ')} wird vom Stil „${style.name}“ überschrieben.`, 'warn');
     }
   }
 
@@ -1919,6 +1990,7 @@
       if (opt.aspect) setAspectValue(opt.aspect);
       updatePortraitMode();
       renderStylePreview();
+      recheckAllStyleConflicts();
       if (id === 'custom') openCustomStyleEditor();
     }
     wrapper.classList.remove('open');
@@ -2097,9 +2169,10 @@
       id: "esmara",
       name: "Esmara Fashion Kampagne",
       group: "LIDL",
+      strict: true,
       prompt: "STIL: Moderne, hochwertige Fashion-Kampagne (inspirierte Ästhetik).\nVisual Identity (STRICT):\n- Farbpalette: warme Beige-Töne, weiches Creme, subtile rote Akzente (#d50000)\n- Beleuchtung: weiches diffuses Studiolicht, warm, elegant\n- Stimmung: premium, ruhig, minimalistisch\n- Materialien: weiche Stoffe, natürliche Texturen\n- Hintergrund: clean, neutral, leicht unscharf\nPhotography Style: High-End Editorial, flache Schärfentiefe.\nVERBOTEN: Schreibe KEINESFALLS die Wörter 'Esmara' oder 'Lidl' in das Bild. Generiere KEINE Logos oder Markennamen."
     },
-    { id: "beiersdorf", name: "Hero Visual", group: "Beiersdorf", aspect: "9:16", prompt: `STIL: Beiersdorf Hero-Visual für NIVEA, Eucerin und Labello. Dramatischer, cineastischer 3D-Look.
+    { id: "beiersdorf", name: "Hero Visual", group: "Beiersdorf", aspect: "9:16", strict: true, prompt: `STIL: Beiersdorf Hero-Visual für NIVEA, Eucerin und Labello. Dramatischer, cineastischer 3D-Look.
 Bildaufbau:
 - Zentrales kreisförmiges Portal mit leuchtenden Neonringen, darin die Produktgruppe aus NIVEA, Eucerin und Labello
 - Fünf Icons sauber und mit großzügigem Abstand um das Portal angeordnet, keines angeschnitten
@@ -2379,7 +2452,8 @@ FINAL CONSTRAINTS:
 * no watermark
 * no background elements from Image 1
 * no unnatural anatomy` },
-    ...(window.ROOTS_MASTER_STYLES || []),
+    // Masterprompts sind feste Stile: Gestaltung kommt vom Stil, der Auftrag liefert Thema und Motiv.
+    ...(window.ROOTS_MASTER_STYLES || []).map(style => ({ ...style, strict: true })),
     { id: "photo", name: "Fotorealistisch", prompt: "Photorealistic, high quality, 8k, DSLR" },
     { id: "anime", name: "Anime / Manga", prompt: "Anime / Manga Style, vibrant colors, clean lines" },
     { id: "watercolor", name: "Aquarell Malerei", prompt: "Watercolor painting, expressive brushstrokes" },
@@ -2790,6 +2864,7 @@ FINAL CONSTRAINTS:
             inputImagePaths,
             clothingImage,
             seriesRefPaths,
+            styleStrict: Boolean(styleOpt?.strict),
             priorCostUsd: costSoFar,
             deferHistory: Boolean(styleOpt?.ciCheck)
           });
@@ -2939,6 +3014,7 @@ FINAL CONSTRAINTS:
     document.getElementById('btn-cancel').style.display = 'flex';
     document.getElementById('btn-zip').style.display = 'none';
     document.getElementById('log-container').innerHTML = '';
+    void logStyleConflicts(prompts);
     document.getElementById('gallery').innerHTML = '';
     batchCancelled = false;
     generatedImagesGlobal = [];
