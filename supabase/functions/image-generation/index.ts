@@ -560,7 +560,8 @@ async function handleRequest(req: Request): Promise<Response> {
   if (istOpenaiBildModell(modelId)) {
     // GPT Image: gleicher Auftrag und dieselben Referenzen, Antwort im Format von Google,
     // damit Oberflaeche, Verlauf und Kostenanzeige unveraendert bleiben.
-    const { data: openaiKey } = await admin.schema("shared").rpc("get_api_key", { p_key_name: "wissenshub_openai_api_key" });
+    const openaiKey = (await admin.schema("shared").rpc("get_api_key", { p_key_name: "signal_layer_openai_api_key" })).data
+      || (await admin.schema("shared").rpc("get_api_key", { p_key_name: "wissenshub_openai_api_key" })).data;
     if (!openaiKey) return errorResponse("OpenAI-Schlüssel fehlt im Vault.", 503);
     const bilder = [
       ...inputImages.map((b, i) => ({ ...b, label: `Eingabebild ${i + 1} (Image ${i + 1} im Auftrag)` })),
