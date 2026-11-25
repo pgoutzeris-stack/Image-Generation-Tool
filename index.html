@@ -891,7 +891,11 @@
     .history-grid { grid-template-columns:1fr; padding:1rem; }
     .history-card-img { height:auto; aspect-ratio:4/3; }
   }
-  </style>
+    .model-ico { width: 15px; height: 15px; margin-right: 8px; vertical-align: -2px; opacity: .85; }
+  .model-ico--fa { display: inline-block; width: 15px; text-align: center; font-size: 12px; color: var(--brand, #206efb); }
+  .model-tag { font-size: .68rem; font-weight: 700; color: #16a34a; margin-left: 4px; }
+  .model-tag--pro { color: #8b5cf6; }
+</style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.8"></script>
   <script src="assets/master-styles.js?v=20261123a"></script>
   <script src="assets/style-previews.js?v=20261123c"></script>
@@ -1282,23 +1286,17 @@
           <input type="hidden" id="sel-model" value="nb2">
           <div id="dd-model" class="custom-select-wrapper">
             <div class="custom-select-trigger" onclick="toggleDropdown('dd-model', event)">
-              <span class="selected-text">Nano Banana 2</span>
+              <span class="selected-text"><img class="model-ico" src="assets/modell-icons/googlegemini.svg" alt="">Nano Banana 2</span>
               <i class="fa-solid fa-chevron-down arrow"></i>
             </div>
             <div class="custom-options">
-              <div class="custom-option" onclick="setSimpleOpt('dd-model', 'sel-model', 'nbpro', 'Nano Banana Pro', event)">
-                <span class="option-text">Nano Banana Pro <span style="font-size:.7rem;color:#8b5cf6;font-weight:600">PRO</span></span>
-              </div>
-              <div class="custom-option selected" onclick="setSimpleOpt('dd-model', 'sel-model', 'nb2', 'Nano Banana 2', event)">
-                <span class="option-text">Nano Banana 2</span>
-              </div>
-
-              <div class="custom-option" onclick="setSimpleOpt('dd-model', 'sel-model', 'nb1', 'Nano Banana 1', event)">
-                <span class="option-text">Nano Banana 1</span>
-              </div>
-              <div class="custom-option" onclick="setSimpleOpt('dd-model', 'sel-model', 'auto', 'Auto (empfohlen)', event)">
-                <span class="option-text">Auto <span style="font-size:.7rem;color:#94a3b8">empfohlen</span></span>
-              </div>
+              <div class="custom-option" onclick="setModelOpt('gpt26s', event)"><span class="option-text"><img class="model-ico" src="assets/modell-icons/openai.svg" alt="">GPT Image 2.6 Sunburst <span class="model-tag">NEU</span></span></div>
+              <div class="custom-option" onclick="setModelOpt('gpt26f', event)"><span class="option-text"><img class="model-ico" src="assets/modell-icons/openai.svg" alt="">GPT Image 2.6 Flare</span></div>
+              <div class="custom-option" onclick="setModelOpt('gpt2', event)"><span class="option-text"><img class="model-ico" src="assets/modell-icons/openai.svg" alt="">GPT Image 2</span></div>
+              <div class="custom-option" onclick="setModelOpt('nbpro', event)"><span class="option-text"><img class="model-ico" src="assets/modell-icons/googlegemini.svg" alt="">Nano Banana Pro <span class="model-tag model-tag--pro">PRO</span></span></div>
+              <div class="custom-option selected" onclick="setModelOpt('nb2', event)"><span class="option-text"><img class="model-ico" src="assets/modell-icons/googlegemini.svg" alt="">Nano Banana 2</span></div>
+              <div class="custom-option" onclick="setModelOpt('nb1', event)"><span class="option-text"><img class="model-ico" src="assets/modell-icons/googlegemini.svg" alt="">Nano Banana 1</span></div>
+              <div class="custom-option" onclick="setModelOpt('auto', event)"><span class="option-text"><i class="fa-solid fa-wand-magic-sparkles model-ico model-ico--fa"></i>Auto <span style="font-size:.7rem;color:#94a3b8">empfohlen</span></span></div>
             </div>
           </div>
         </div>
@@ -2224,6 +2222,31 @@
   const MODEL_PRO = 'gemini-3-pro-image';        // Nano Banana Pro - professionell
   const MODEL_NB2 = 'gemini-3.1-flash-image';    // Nano Banana 2 - beste Balance
   const MODEL_NB1 = 'gemini-2.5-flash-image';    // Nano Banana 1 - schnell
+  const MODEL_GPT26S = 'gpt-image-2.6-sunburst';  // OpenAI, genaues Bearbeiten
+  const MODEL_GPT26F = 'gpt-image-2.6-flare';     // OpenAI, schneller
+  const MODEL_GPT2 = 'gpt-image-2';
+  const MODEL_MODI = {
+    gpt26s: { id: MODEL_GPT26S, label: 'GPT Image 2.6 Sunburst', icon: 'openai' },
+    gpt26f: { id: MODEL_GPT26F, label: 'GPT Image 2.6 Flare', icon: 'openai' },
+    gpt2: { id: MODEL_GPT2, label: 'GPT Image 2', icon: 'openai' },
+    nbpro: { id: MODEL_PRO, label: 'Nano Banana Pro', icon: 'googlegemini' },
+    nb2: { id: MODEL_NB2, label: 'Nano Banana 2', icon: 'googlegemini' },
+    nb1: { id: MODEL_NB1, label: 'Nano Banana 1', icon: 'googlegemini' },
+  };
+  function modelLabelHtml(mode) {
+    const m = MODEL_MODI[mode];
+    if (!m) return '<i class="fa-solid fa-wand-magic-sparkles model-ico model-ico--fa"></i>Auto';
+    return `<img class="model-ico" src="assets/modell-icons/${m.icon}.svg" alt="">${m.label}`;
+  }
+  window.setModelOpt = function(mode, e) {
+    if (e) e.stopPropagation();
+    document.getElementById('sel-model').value = mode;
+    const wrapper = document.getElementById('dd-model');
+    wrapper.querySelector('.selected-text').innerHTML = modelLabelHtml(mode);
+    wrapper.querySelectorAll('.custom-option').forEach(opt => opt.classList.remove('selected'));
+    if (e && e.currentTarget) e.currentTarget.classList.add('selected');
+    wrapper.classList.remove('open');
+  };
   const RETRYABLE_KEYWORDS = [
     'resource', 'overloaded', 'rate', 'quota', 'limit', 'capacity',
     'demand', 'busy', 'try again', 'unavailable', 'internal', 'backend',
@@ -2867,6 +2890,10 @@ FINAL CONSTRAINTS:
     if (modelMode === 'nbpro') { models = [{ id: MODEL_PRO, label: 'Nano Banana Pro', maxRetries: 3 }]; }
     else if (modelMode === 'nb1') { models = [{ id: MODEL_NB1, label: 'Nano Banana 1', maxRetries: 5 }]; }
     else if (modelMode === 'nb2') { models = [{ id: MODEL_NB2, label: 'Nano Banana 2', maxRetries: 5 }]; }
+    else if (MODEL_MODI[modelMode] && MODEL_MODI[modelMode].icon === 'openai') {
+      // GPT Image, bei Ausfall Nano Banana 2 als Ersatz.
+      models = [{ id: MODEL_MODI[modelMode].id, label: MODEL_MODI[modelMode].label, maxRetries: 2 }, { id: MODEL_NB2, label: 'Nano Banana 2 (Fallback)', maxRetries: 2 }];
+    }
     else {
       models = [
         { id: MODEL_PRO, label: 'Nano Banana Pro', maxRetries: 2 },
@@ -3405,17 +3432,14 @@ FINAL CONSTRAINTS:
     }
 
     if (data.model_id) {
-      const modeMap = { 'gemini-3-pro-image':'nbpro', 'gemini-3.1-flash-image':'nb2', 'gemini-2.5-flash-image':'nb1' };
+      const modeMap = { 'gemini-3-pro-image':'nbpro', 'gemini-3.1-flash-image':'nb2', 'gemini-2.5-flash-image':'nb1', 'gpt-image-2.6-sunburst':'gpt26s', 'gpt-image-2.6-flare':'gpt26f', 'gpt-image-2':'gpt2' };
       const modeVal = modeMap[data.model_id] || 'nb2';
       const modelSelect = document.getElementById('sel-model');
       if (modelSelect) modelSelect.value = modeVal;
       const ddModel = document.getElementById('dd-model');
       if (ddModel) {
         const selText = ddModel.querySelector('.selected-text');
-        if (selText) {
-          const labelMap = { nbpro:'Nano Banana Pro', nb2:'Nano Banana 2', nb1:'Nano Banana 1' };
-          selText.textContent = labelMap[modeVal] || 'Nano Banana 2';
-        }
+        if (selText) selText.innerHTML = modelLabelHtml(modeVal);
       }
     }
 

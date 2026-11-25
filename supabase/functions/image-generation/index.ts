@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2.110.8";
+import { istOpenaiBildModell, openaiBild, openaiBildKostenUsd, OPENAI_BILD_PREISE } from "./openai-bild.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -10,6 +11,7 @@ const ALLOWED_MODELS = new Set([
   "gemini-3.1-flash-image",
   "gemini-2.5-flash-image",
   "gemini-3.1-flash-image-preview",
+  ...Object.keys(OPENAI_BILD_PREISE),
 ]);
 const ALLOWED_ASPECTS = new Set(["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"]);
 const ALLOWED_IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -93,6 +95,7 @@ const PRICES: Record<string, { input: number; image: number; text: number }> = {
 };
 
 function costFromUsage(model: string, parsed: Record<string, any> | null) {
+  if (istOpenaiBildModell(model)) return openaiBildKostenUsd(model, parsed?._openaiUsage);
   const price = PRICES[model];
   const usage = parsed?.usageMetadata;
   if (!price || !usage) return 0;
@@ -234,7 +237,7 @@ async function handleRequest(req: Request): Promise<Response> {
     const usage = parsed?.usageMetadata || {};
     const cached = Number(usage.cachedContentTokenCount || 0);
     const { error } = await admin.schema("shared").from("ai_provider_usage").insert({
-      app: "image-generation", operation, provider: "google", model,
+      app: "image-generation", operation, provider: istOpenaiBildModell(model) ? "openai" : "google", model,
       status: ok ? "success" : "error", user_id: authenticatedUser.id,
       input_tokens: Math.max(0, Number(usage.promptTokenCount || 0) - cached),
       cached_input_tokens: cached,
@@ -552,6 +555,53 @@ async function handleRequest(req: Request): Promise<Response> {
     for (const asset of await loadAssets(body.seriesRefPaths, 3 - seriesReferences.length)) seriesReferences.push(asset);
   } catch (error) {
     return errorResponse(error instanceof Error ? error.message : "Referenzbild ist ungültig.", 400);
+  }
+
+  if (istOpenaiBildModell(modelId)) {
+    // GPT Image: gleicher Auftrag und dieselben Referenzen, Antwort im Format von Google,
+    // damit Oberflaeche, Verlauf und Kostenanzeige unveraendert bleiben.
+    const { data: openaiKey } = await admin.schema("shared").rpc("get_api_key", { p_key_name: "wissenshub_openai_api_key" });
+    if (!openaiKey) return errorResponse("OpenAI-Schlüssel fehlt im Vault.", 503);
+    const bilder = [
+      ...inputImages.map((b, i) => ({ ...b, label: `Eingabebild ${i + 1} (Image ${i + 1} im Auftrag)` })),
+      ...seriesReferences.map((b, i) => ({ ...b, label: `Serienreferenz ${i + 1}: freigegebenes Beispiel dieser Bildserie, Qualität und Bildsprache übernehmen, keine Motive` })),
+      ...(styleReference ? [{ ...styleReference, label: "Stilreferenz: nur die visuelle Bildsprache übernehmen" }] : []),
+      ...(logoReference ? [{ ...logoReference, label: `Logo: originalgetreu ${LOGO_PLACEMENTS[logoPlacement]} einbetten` }] : []),
+    ];
+    const start = Date.now();
+    const ergebnis = await openaiBild({
+      apiKey: String(openaiKey), modell: modelId, aspect, auftrag: promptText, bilder,
+      anweisung: buildSystemInstruction(stylePrompt, Boolean(styleReference), Boolean(logoReference), logoPlacement,
+        inputImages.length, seriesReferences.length, body.styleStrict === true, readStyleConflicts(body.styleConflicts)),
+    });
+    const nutzung = ergebnis.nutzung || {};
+    const parsedResponse: Record<string, any> = {
+      candidates: ergebnis.ok ? [{ content: { parts: [{ inlineData: { data: ergebnis.data, mimeType: ergebnis.mime } }] } }] : undefined,
+      usageMetadata: { promptTokenCount: Number(nutzung.input_tokens || 0), candidatesTokenCount: Number(nutzung.output_tokens || 0) },
+      _openaiUsage: nutzung,
+    };
+    await logUsage("generate_image", modelId, parsedResponse, ergebnis.ok, start, ergebnis.ok ? 1 : 0, ergebnis.ok ? undefined : `http_${ergebnis.status}`);
+    if (!ergebnis.ok) return errorResponse(`OpenAI: ${ergebnis.fehler}`, ergebnis.status === 429 ? 429 : 502);
+    const kosten = costFromUsage(modelId, parsedResponse);
+    const previewPath = String(body.previewPath ?? "");
+    if (serviceMode && /^previews\/[a-z0-9-]+\/[1-4]\.(png|jpg)$/.test(previewPath)) {
+      const bytes = Uint8Array.from(atob(ergebnis.data), (c) => c.charCodeAt(0));
+      const { error: uploadError } = await admin.storage.from("image-tool-previews").upload(previewPath, bytes, { contentType: ergebnis.mime, upsert: true });
+      return jsonResponse({ ok: !uploadError, path: previewPath, error: uploadError?.message || null, costUsd: kosten });
+    }
+    if (body.deferHistory !== true && !serviceMode) {
+      const { data: profile } = await admin.schema("users").from("profiles").select("full_name").eq("id", authenticatedUser.id).maybeSingle();
+      const { error: historyError } = await admin.from("image_gen_history").insert({
+        user_id: authenticatedUser.id, user_name: profile?.full_name || authenticatedUser.email?.split("@")[0] || "Unbekannt",
+        user_email: authenticatedUser.email || "", prompt: promptText, model_id: modelId, model_label: modelLabel, aspect,
+        style_id: styleId || null, image_data: ergebnis.data, mime_type: ergebnis.mime,
+        cost_usd: Number((clientCost(body.priorCostUsd) + kosten).toFixed(4)),
+      });
+      if (historyError) console.error("History save failed:", historyError.message);
+    }
+    parsedResponse._costUsd = kosten;
+    delete parsedResponse._openaiUsage;
+    return jsonResponse(parsedResponse);
   }
 
   let apiKey = "";
