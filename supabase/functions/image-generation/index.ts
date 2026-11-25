@@ -269,7 +269,8 @@ async function handleRequest(req: Request): Promise<Response> {
   if (action === "settings_status") {
     const { data, error } = await admin.rpc("image_generation_google_key_configured");
     if (error) return errorResponse(error.message, 500);
-    return jsonResponse({ configured: Boolean(data) });
+    const { data: openai } = await admin.rpc("image_generation_openai_key_configured");
+    return jsonResponse({ configured: Boolean(data), openai_configured: Boolean(openai) });
   }
 
   if (action === "save_google_api_key") {
@@ -281,6 +282,15 @@ async function handleRequest(req: Request): Promise<Response> {
     });
     if (error) return errorResponse(error.message, 500);
     return jsonResponse({ ok: true, configured: true });
+  }
+
+  if (action === "save_openai_api_key") {
+    if (!(await isAdmin())) return errorResponse("Forbidden", 403);
+    const apiKey = String(body.apiKey ?? "").trim();
+    if (!apiKey || apiKey.length < 20) return errorResponse("Ungültiger API-Key", 400);
+    const { error } = await admin.rpc("image_generation_upsert_openai_api_key", { p_api_key: apiKey });
+    if (error) return errorResponse(error.message, 500);
+    return jsonResponse({ ok: true, openai_configured: true });
   }
 
   if (action === "get_history") {

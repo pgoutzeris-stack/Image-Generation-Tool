@@ -895,6 +895,7 @@
   .model-ico--fa { display: inline-block; width: 15px; text-align: center; font-size: 12px; color: var(--brand, #206efb); }
   .model-tag { font-size: .68rem; font-weight: 700; color: #16a34a; margin-left: 4px; }
   .model-tag--pro { color: #8b5cf6; }
+  .badge-openai { background: #0f172a; }
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.8"></script>
   <script src="assets/master-styles.js?v=20261123a"></script>
@@ -1108,7 +1109,17 @@
             <input id="img-google-key" class="api-key-input" type="password" placeholder="AIza…" autocomplete="off">
             <button class="btn-eye" onclick="toggleImageKeyVisibility('img-google-key', this)" title="Anzeigen"><i class="fa-solid fa-eye"></i></button>
           </div>
-          <div class="settings-hint" style="margin-top:.35rem">Wird sicher in Supabase Vault gespeichert und nur serverseitig durch die Edge Function genutzt.</div>
+        </div>
+
+        <div class="api-key-group">
+          <label class="api-key-label" for="img-openai-key">
+            <span class="api-provider-badge badge-openai"><img src="assets/modell-icons/openai.svg" alt="" style="width:12px;height:12px;filter:invert(1)"></span> OpenAI (GPT Image)
+          </label>
+          <div class="api-key-input-wrap">
+            <input id="img-openai-key" class="api-key-input" type="password" placeholder="sk-…" autocomplete="off">
+            <button class="btn-eye" onclick="toggleImageKeyVisibility('img-openai-key', this)" title="Anzeigen"><i class="fa-solid fa-eye"></i></button>
+          </div>
+          <div class="settings-hint" style="margin-top:.35rem" id="img-openai-status"></div>
         </div>
       </div>
     </div>
@@ -1477,18 +1488,24 @@
   }
 
   window.saveImageAiSettings = async function() {
-    const input = document.getElementById('img-google-key');
+    const googleInput = document.getElementById('img-google-key');
+    const openaiInput = document.getElementById('img-openai-key');
     const btn = document.getElementById('btn-save-img-key');
-    const apiKey = input?.value?.trim() || '';
-    if (!apiKey || apiKey.startsWith('••')) { toast('Bitte Google API-Key eintragen.', 'error'); return; }
+    const googleKey = googleInput?.value?.trim() || '';
+    const openaiKey = openaiInput?.value?.trim() || '';
+    const neuGoogle = googleKey && !googleKey.startsWith('••');
+    const neuOpenai = openaiKey && !openaiKey.startsWith('••');
+    if (!neuGoogle && !neuOpenai) { toast('Bitte einen API-Key eintragen.', 'error'); return; }
     const original = btn?.innerHTML || '';
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Speichere...'; }
     try {
-      await callImageFunction('save_google_api_key', { apiKey });
-      if (input) input.value = '';
+      if (neuGoogle) await callImageFunction('save_google_api_key', { apiKey: googleKey });
+      if (neuOpenai) await callImageFunction('save_openai_api_key', { apiKey: openaiKey });
+      if (googleInput) googleInput.value = '';
+      if (openaiInput) openaiInput.value = '';
       // Modal schließen BEVOR toast - dann ist toast sichtbar
       closeImageAiSettings();
-      toast('Google API-Key gespeichert ✓ Bildgenerierung ist jetzt aktiv.', 'success');
+      toast(`${[neuGoogle ? 'Google' : '', neuOpenai ? 'OpenAI' : ''].filter(Boolean).join(' und ')} API-Key gespeichert ✓`, 'success');
     } catch (error) {
       toast(error.message || 'Fehler beim Speichern.', 'error');
       if (btn) { btn.disabled = false; btn.innerHTML = original || '<i class="fa-solid fa-vault"></i> Sicher speichern'; }
@@ -2725,6 +2742,10 @@ FINAL CONSTRAINTS:
     try {
       const result = await callImageFunction('settings_status');
       const configured = result?.configured || result?.data?.configured;
+      const openaiStatus = document.getElementById('img-openai-status');
+      const openaiInput = document.getElementById('img-openai-key');
+      if (openaiStatus) openaiStatus.textContent = result?.openai_configured ? 'OpenAI API-Key hinterlegt ✓' : 'Kein OpenAI API-Key hinterlegt';
+      if (openaiInput && result?.openai_configured) { openaiInput.value = '••••••••••••'; openaiInput.placeholder = 'Gesetzt - neu eingeben zum Ändern'; }
       if (configured) {
         if (modalStatus) {
           modalStatus.className = 'settings-status ok';
